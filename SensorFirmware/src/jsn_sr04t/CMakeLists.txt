@@ -1,0 +1,3 @@
+zephyr_library_named(jsn_sr04t)
+
+zephyr_library_sources_ifdef(CONFIG_JSN_SR04T jsn_sr04t.c)

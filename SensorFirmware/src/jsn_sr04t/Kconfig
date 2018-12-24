@@ -1,0 +1,50 @@
+# Kconfig - JSN-SR04T Waterproof Ultrasonic Rangefinder configuration options
+
+menuconfig JSN_SR04T
+	bool "JSN-SR04T Waterproof Ultrasonic Rangefinder"
+	depends on GPIO
+	help
+	  Enable driver for the JSN-SR04T waterproof ultrasonic rangefinder.
+
+if JSN_SR04T
+
+config JSN_SR04T_NAME
+	string "Driver name"
+	default "JSN_SR04T"
+	help
+	  Device name with which the sensor is identified.
+
+config JSN_SR04T_GPIO_DEV_NAME
+	string "Trig/echo GPIO device"
+	default "GPIO_0"
+	help
+		The device name of the GPIO device to which the chip's trigger/echo pin
+		is connected.
+
+config JSN_SR04T_TRIG_GPIO_PIN_NUM
+	int "Trig GPIO pin number"
+	default 3
+	help
+		The number of the GPIO on which the chip's data pin is trigger pin is
+		connected.
+
+config JSN_SR04T_ECHO_GPIO_PIN_NUM
+	int "Trig/echo GPIO pin number"
+	default 4
+	help
+		The number of the GPIO on which the chip's data pin is trigger/echo pin
+		is connected.
+
+config JSN_SR04T_ECHO_TIMEOUT
+	int "Echo timeout in ms"
+	default 12
+	help
+		Timeout in ms to wait for an echo
+
+config JSN_SR04T_NS_PER_MM
+	int "Echo time conversion factor"
+	default 5882
+	help
+		Echo time conversion factor in nS per mm
+
+endif # JSN_SR04T

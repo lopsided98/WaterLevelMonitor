@@ -1,0 +1,1 @@
+add_subdirectory_ifdef(CONFIG_JSN_SR04T	jsn_sr04t)
