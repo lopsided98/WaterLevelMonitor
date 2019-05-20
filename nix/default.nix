@@ -16,20 +16,13 @@ let
             sha256 = "08n7q2l69hlainds1byd4lxhwrq7zsw7s640zkqc3bs5jkq0cnc0";
           };
         });
-        sh = pySelf.sh.overridePythonAttrs (oldAttrs: rec {
-          version = "1.11";
-          src = pySelf.fetchPypi {
-            inherit (oldAttrs) pname;
-            inherit version;
-            sha256 = "192r0mpv6dmkysjzhc43ddffiwb5g7c76bgr1mb1z2xz9awbj3sr";
-          };
-        });
         click = pySelf.click.overridePythonAttrs (oldAttrs: rec {
-          version = "6.6";
+          version = "6.7";
+          patches = [];
           src = pySelf.fetchPypi {
             inherit (oldAttrs) pname;
             inherit version;
-            sha256 = "1sggipyz52crrybwbr9xvwxd4aqigvplf53k9w3ygxmzivd1jsnc";
+            sha256 = "02qkfpykbq35id8glfgwc38yc430427yd05z1wc5cnld8zgicmgi";
           };
         });
       };
@@ -49,14 +42,6 @@ let
       nrfutil = pySelf.callPackage ./nrfutil.nix { };
       pc_ble_driver_py = pySelf.callPackage ./pc_ble_driver_py.nix { };
       piccata = pySelf.callPackage ./piccata.nix { };
-      /*pyasn1 = pySuper.pyasn1.overridePythonAttrs (oldAttrs: rec {
-        version = "0.2.3";
-        src = pySelf.fetchPypi {
-          inherit (oldAttrs) pname;
-          inherit version;
-          sha256 = "1b86yx23c1x74clai05a5ma8c8nfmhlx3j1mxq0ff657i2ylx33k";
-        };
-      });*/
       pykwalify = pySelf.callPackage ./pykwalify.nix { };
       pyocd = pySelf.callPackage ./pyocd.nix { };
       pyshark-legacy = pySelf.callPackage ./pyshark-legacy.nix {
