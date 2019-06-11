@@ -1,14 +1,12 @@
-{ lib, fetchFromGitHub, buildPythonPackage, click, arrow, sh, git }:
+{ lib, fetchPypi, buildPythonPackage, click, arrow, sh, git }:
 
 buildPythonPackage rec {
   pname = "gitlint";
-  version = "0.10.0-20181107";
+  version = "0.11.0";
   
-  src = fetchFromGitHub {
-    owner = "jorisroovers";
-    repo = "gitlint";
-    rev = "20738f92ec8e8670c4e89643f4d185981b74decc";
-    sha256 = "10qdhyrsd2j1zs3yw11whaigdqwvy95mfsghzlpkx76rgwqwvhgv";
+  src = fetchPypi {
+    inherit pname version;
+    sha256 = "0n25ddmgc9d3wfdjm8nsy2xdzm9cf39x75syk3qp1wv543i65a2r";
   };
   
   doCheck = false;
