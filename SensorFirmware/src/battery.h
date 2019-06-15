@@ -1,3 +1,3 @@
 #pragma once
 
-void battery_init();
+void battery_init(void);

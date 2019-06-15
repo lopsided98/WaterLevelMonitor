@@ -3,11 +3,9 @@
 #include <device.h>
 #include <sensor.h>
 
-#define SR04T_ECHO_START_WAIT_DURATION	18000
-#define SR04T_ECHO_MAX_WAIT_DURATION 100
-
 enum sr04t_state {
-    STATE_READY = 0,
+    STATE_OFF = 0,
+    STATE_READY,
     STATE_WAIT_ECHO_START,
     STATE_WAIT_ECHO_END
 };

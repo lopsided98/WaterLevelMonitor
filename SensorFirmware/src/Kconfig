@@ -1,1 +1,8 @@
+config BT_DEFAULT_PASSKEY
+    int "Driver name"
+    default 111111
+    depends on BT_FIXED_PASSKEY
+    help
+        Default bluetooth fixed passkey
+
 rsource "jsn_sr04t/Kconfig"

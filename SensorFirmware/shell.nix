@@ -4,30 +4,29 @@ in
 
 with pkgs;
 
-stdenv.mkDerivation {
+let 
+  gcc = pkgsCross.arm-embedded.buildPackages.gcc9;
+  binutils = pkgsCross.arm-embedded.buildPackages.binutils;
+  toolchain = buildEnv {
+    name = "arm-toolchain";
+    paths = [ gcc binutils ];
+  };
+in mkShell {
   name = "water-level-monitor-env";
-  buildInputs = with python3Packages; [
-    wheel
-    breathe
-    sphinx
-    docutils
-    sphinx_rtd_theme
-    sphinxcontrib-svg2pdfconverter
-    junit2html
-    pyyaml
-    ply
-    git-spindle
-    gitlint
-    pyelftools
-    pyocd
-    pyserial
-    pykwalify
-    colorama
-    pillow
-    intelhex
-    dtc
+  nativeBuildInputs = with python3Packages; [
+    which
+    git
+    # gcc
+    # binutils
     cmake
+    dtc
     gperf
+    west
+    pyelftools
+    gcovr
   ];
+
+  # Have to use Arch's GCC for now because Nix's causes crashes
+  GNUARMEMB_TOOLCHAIN_PATH = "/usr"; #toolchain;
 }
 
