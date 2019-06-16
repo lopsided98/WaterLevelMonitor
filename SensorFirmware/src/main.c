@@ -41,9 +41,9 @@ void main(void) {
     // Set LED pin as output
     gpio_pin_configure(gpio, LED, GPIO_DIR_OUT);
 
-    rangefinder = device_get_binding(CONFIG_JSN_SR04T_NAME);
+    rangefinder = device_get_binding(DT_JSN_SR04T_RANGEFINDER_LABEL);
     if (!rangefinder) {
-        LOG_ERR("rangefinder initialization failed");
+        LOG_ERR("rangefinder initialization failed: %s", DT_JSN_SR04T_RANGEFINDER_LABEL);
         return;
     }
 

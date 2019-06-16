@@ -8,40 +8,6 @@ menuconfig JSN_SR04T
 
 if JSN_SR04T
 
-config JSN_SR04T_NAME
-    string "Driver name"
-    default "JSN_SR04T"
-    help
-        Device name with which the sensor is identified.
-
-config JSN_SR04T_GPIO_DEV_NAME
-    string "Trig/echo GPIO device"
-    default "GPIO_0"
-    help
-        The device name of the GPIO device to which the chip's trigger/echo pin
-        is connected.
-
-config JSN_SR04T_TRIG_GPIO_PIN_NUM
-    int "Trig GPIO pin number"
-    default 3
-    help
-        The number of the GPIO on which the chip's data pin is trigger pin is
-        connected.
-
-config JSN_SR04T_ECHO_GPIO_PIN_NUM
-    int "Echo GPIO pin number"
-    default 4
-    help
-        The number of the GPIO on which the chip's data pin is trigger/echo pin
-        is connected.
-
-config JSN_SR04T_EN_GPIO_PIN_NUM
-    int "Regulator enable GPIO pin number"
-    default 2
-    help
-        The number of the GPIO on which the voltage regulator's enable pin is
-        connected.
-
 config JSN_SR04T_ECHO_TIMEOUT
     int "Echo timeout in ms"
     default 12

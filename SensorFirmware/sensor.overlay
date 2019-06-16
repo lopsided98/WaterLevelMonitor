@@ -1,3 +1,14 @@
+/ {
+    rangefinder: rangefinder {
+        status = "ok";
+        compatible = "jsn,sr04t";
+        trig-gpios = <&gpio0 3 GPIO_DIR_OUT>;
+        echo-gpios = <&gpio0 4 (GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE | GPIO_INT_DOUBLE_EDGE)>;
+        en-gpios = <&gpio0 19 GPIO_DIR_OUT>;
+        label = "RANGEFINDER";
+    };
+};
+
 &flash0 {
 	/*
 	 * For more information, see:
