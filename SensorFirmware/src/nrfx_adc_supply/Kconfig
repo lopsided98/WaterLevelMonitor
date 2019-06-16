@@ -1,0 +1,7 @@
+# Kconfig - NRFx supply voltage measurement driver configuration options
+
+menuconfig NRFX_ADC_SUPPLY
+    bool "NRFx supply voltage measurement driver"
+    depends on ADC_NRFX_ADC
+    help
+      Enable NRFx supply voltage measurement driver

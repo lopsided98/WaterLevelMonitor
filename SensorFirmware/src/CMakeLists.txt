@@ -6,4 +6,5 @@ target_sources(app PRIVATE main.c
                battery.c
                temperature.c
                watchdog.c
-               jsn_sr04t/jsn_sr04t.c)
+               jsn_sr04t/jsn_sr04t.c
+               nrfx_adc_supply/nrfx_adc_supply.c)

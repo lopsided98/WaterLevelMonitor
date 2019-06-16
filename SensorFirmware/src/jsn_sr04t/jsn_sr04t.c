@@ -199,7 +199,7 @@ static const struct sr04t_config sr04t_config = {
         .en_gpio_flags = DT_INST_0_JSN_SR04T_EN_GPIOS_FLAGS
 };
 
-struct sr04t_data sr04t_data;
+static struct sr04t_data sr04t_data;
 
 DEVICE_DEFINE(sr04t_dev, DT_INST_0_JSN_SR04T_LABEL, &sr04t_init, &sr04t_pm_control, &sr04t_data,
               &sr04t_config, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, &sr04t_api);

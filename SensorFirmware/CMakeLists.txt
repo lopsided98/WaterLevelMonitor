@@ -11,11 +11,4 @@ project(SensorFirmware)
 
 add_subdirectory(src)
 
-#target_sources(app PRIVATE src/main.c
-#        src/bluetooth.c
-#        src/battery.c
-#        src/temperature.c
-#        src/watchdog.c
-#        src/jsn_sr04t/jsn_sr04t.c)
-
 # target_link_libraries_ifdef(CONFIG_JSN_SR04T app PUBLIC jsn_sr04t)

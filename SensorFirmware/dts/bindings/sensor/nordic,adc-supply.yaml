@@ -1,0 +1,19 @@
+#
+# Copyright (c) 2019, Ben Wolsieffer
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+---
+title: NRFx supply voltage sensor
+version: 0.1
+
+description: >
+  Binding for the NRFx supply voltage sensor
+inherits:
+  !include base.yaml
+
+properties:
+  compatible:
+    constraint: "nordic,adc-supply"
+
+...

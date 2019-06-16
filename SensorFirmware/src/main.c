@@ -14,7 +14,7 @@ LOG_MODULE_REGISTER(main);
 #define LED_PORT LED0_GPIO_CONTROLLER
 #define LED LED0_GPIO_PIN
 
-#define SLEEP_TIME 500
+#define SLEEP_TIME 1000
 
 #define NUM_SAMPLES 10
 
@@ -22,14 +22,15 @@ void main(void) {
     int err = 0;
     int cnt = 0;
     struct device* gpio;
-    struct device* rangefinder;
 
     IF_ERR (bluetooth_init()) {
-        LOG_ERR("bluetooth initialization failed (err %d)", err);
+        LOG_ERR("Bluetooth initialization failed (err %d)", err);
     }
-    battery_init();
+    IF_ERR (battery_init()) {
+        LOG_ERR("Battery initialization failed (err %d)", err);
+    }
     IF_ERR (temperature_init()) {
-        LOG_ERR("temperature initialization failed (err %d)", err);
+        LOG_ERR("Temperature initialization failed (err %d)", err);
     }
 
     gpio = device_get_binding(LED_PORT);
@@ -41,13 +42,11 @@ void main(void) {
     // Set LED pin as output
     gpio_pin_configure(gpio, LED, GPIO_DIR_OUT);
 
-    rangefinder = device_get_binding(DT_JSN_SR04T_RANGEFINDER_LABEL);
+    struct device* rangefinder = device_get_binding(DT_JSN_SR04T_RANGEFINDER_LABEL);
     if (!rangefinder) {
-        LOG_ERR("rangefinder initialization failed: %s", DT_JSN_SR04T_RANGEFINDER_LABEL);
+        LOG_ERR("Rangefinder initialization failed: %s", DT_JSN_SR04T_RANGEFINDER_LABEL);
         return;
     }
-
-    struct sensor_value distance;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -66,6 +65,7 @@ void main(void) {
 
             err = sensor_sample_fetch(rangefinder);
             if (!err) {
+                struct sensor_value distance;
                 sensor_channel_get(rangefinder, SENSOR_CHAN_DISTANCE, &distance);
 
                 ++i;
@@ -74,11 +74,11 @@ void main(void) {
 
                 printk("Distance: %d mm\n", distance_mm);
             } else {
-                LOG_ERR("failed to get rangefinder (err %d)", err);
+                LOG_ERR("Failed to get rangefinder (err %d)", err);
             }
 
             k_sleep(50);
-        };
+        }
 
         device_set_power_state(rangefinder, DEVICE_PM_OFF_STATE, NULL, NULL);
 
@@ -86,6 +86,10 @@ void main(void) {
         printk("Distance (avg): %d mm\n", distance_mm_avg);
 
         bluetooth_set_water_level((u16_t) distance_mm_avg);
+
+        IF_ERR(battery_update()) {
+            LOG_ERR("Failed to update battery (err %d)", err);
+        }
 
         k_sleep(SLEEP_TIME);
     }

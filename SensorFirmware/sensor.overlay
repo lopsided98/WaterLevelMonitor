@@ -7,6 +7,16 @@
         en-gpios = <&gpio0 19 GPIO_DIR_OUT>;
         label = "RANGEFINDER";
     };
+
+    battery: battery {
+      status = "ok";
+      compatible = "nordic,adc-supply";
+      label = "SUPPLY_VOLTAGE";
+    };
+};
+
+&adc {
+    status = "okay";
 };
 
 &flash0 {
