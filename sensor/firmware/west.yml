@@ -1,0 +1,18 @@
+west:
+  revision: v0.5.8
+manifest:
+  remotes:
+    - name: zephyr
+      url-base: https://github.com/zephyrproject-rtos
+    - name: juullabs-oss
+      url-base: https://github.com/JuulLabs-OSS
+  projects:
+    - name: zephyr
+      remote: zephyr
+      west-commands: scripts/west-commands.yml
+    - name: mbedtls
+      remote: zephyr
+      revision: ca32746072ce3381f1c9ae46ba6cd34c69f8c0ee
+      path: zephyr/modules/crypto/mbedtls
+    - name: mcuboot
+      remote: juullabs-oss

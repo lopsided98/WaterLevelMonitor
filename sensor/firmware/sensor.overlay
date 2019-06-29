@@ -9,9 +9,9 @@
     };
 
     battery: battery {
-      status = "ok";
-      compatible = "nordic,adc-supply";
-      label = "SUPPLY_VOLTAGE";
+        status = "ok";
+        compatible = "nordic,adc-supply";
+        label = "SUPPLY_VOLTAGE";
     };
 };
 
@@ -31,23 +31,23 @@
 
 		boot_partition: partition@0 {
 			label = "mcuboot";
-			reg = <0x00000000 0x8000>;
+			reg = <0x00000000 0x9000>;
 		};
-		slot0_partition: partition@8000 {
+		slot0_partition: partition@9000 {
 			label = "image-0";
-			reg = <0x00008000 0x1a000>;
+			reg = <0x00009000 0x1a000>;
 		};
-		slot1_partition: partition@22000 {
+		slot1_partition: partition@23000 {
 			label = "image-1";
-			reg = <0x00022000 0x1a000>;
+			reg = <0x00023000 0x1a000>;
 		};
-		scratch_partition: partition@3c000 {
+		scratch_partition: partition@3d000 {
 			label = "image-scratch";
-			reg = <0x0003c000 0x2000>;
+			reg = <0x0003d000 0x2000>;
 		};
-		storage_partition: partition@3e000 {
+		storage_partition: partition@3f000 {
 			label = "storage";
-			reg = <0x0003e000 0x00002000>;
+			reg = <0x0003f000 0x00001000>;
 		};
 	};
 };

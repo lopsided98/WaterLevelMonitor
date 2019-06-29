@@ -3,6 +3,7 @@ let
 in
 
 with pkgs.pkgsCross.arm-embedded.buildPackages;
+with python3Packages;
 
 let
   toolchain = buildEnv {
@@ -11,16 +12,20 @@ let
   };
 in mkShell {
   name = "water-level-monitor-env";
-  nativeBuildInputs = with python3Packages; [
+  nativeBuildInputs = [
     which
     git
     # gcc
     # binutils
     cmake
+    ninja
     dtc
     gperf
     west
     pyelftools
+    click
+    cryptography
+    intelhex
     gcovr
     openocd
     gdb
