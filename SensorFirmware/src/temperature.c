@@ -1,6 +1,7 @@
 #include <device.h>
 #include <sensor.h>
 #include <logging/log.h>
+#include <settings/settings.h>
 #include "temperature.h"
 #include "common.h"
 #include "bluetooth.h"

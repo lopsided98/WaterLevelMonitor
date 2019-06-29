@@ -31,7 +31,7 @@ static void sr04t_echo_interrupt(struct device* port, struct gpio_callback* cb, 
 int sr04t_sample_fetch(struct device* dev, enum sensor_channel chan) {
     int err = 0;
 
-    const struct sr04t_config *config = dev->config->config_info;
+    const struct sr04t_config* config = dev->config->config_info;
     struct sr04t_data* data = dev->driver_data;
 
     if (chan != SENSOR_CHAN_ALL && chan != SENSOR_CHAN_DISTANCE)
@@ -98,7 +98,7 @@ static int sr04t_channel_get(struct device* dev,
 static int sr04t_pm_control(struct device* dev, u32_t cmd, void* context, device_pm_cb cb, void* arg) {
     int err = 0;
 
-    const struct sr04t_config *config = dev->config->config_info;
+    const struct sr04t_config* config = dev->config->config_info;
     struct sr04t_data* data = dev->driver_data;
 
     switch (cmd) {
@@ -108,7 +108,7 @@ static int sr04t_pm_control(struct device* dev, u32_t cmd, void* context, device
                     if (data->state == STATE_OFF) {
                         IF_ERR(gpio_pin_write(data->en_gpio, config->en_gpio_pin, 1)) goto cleanup;
                         // Wait for device to start
-                        k_sleep(K_MSEC(20));
+                        k_sleep(K_MSEC(100));
                         data->state = STATE_READY;
                     }
                     break;
@@ -143,7 +143,7 @@ static int sr04t_pm_control(struct device* dev, u32_t cmd, void* context, device
 static int sr04t_init(struct device* dev) {
     int err = 0;
 
-    const struct sr04t_config *config = dev->config->config_info;
+    const struct sr04t_config* config = dev->config->config_info;
     struct sr04t_data* data = dev->driver_data;
 
     data->state = STATE_OFF;

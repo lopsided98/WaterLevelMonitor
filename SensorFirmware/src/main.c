@@ -8,23 +8,54 @@
 #include "battery.h"
 #include "common.h"
 #include "temperature.h"
+#include "water_level.h"
 
 LOG_MODULE_REGISTER(main);
 
-#define LED_PORT LED0_GPIO_CONTROLLER
-#define LED LED0_GPIO_PIN
+#define UPDATE_PERIOD K_MSEC(5000)
 
-#define SLEEP_TIME 1000
+K_TIMER_DEFINE(update_timer, NULL, NULL);
 
-#define NUM_SAMPLES 10
+void update_thread(void* p1, void* p2, void* p3) {
+    int err = 0;
+
+    k_timer_start(&update_timer, UPDATE_PERIOD, UPDATE_PERIOD);
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+    for (;;) {
+
+        IF_ERR(temperature_update()) {
+            LOG_ERR("Failed to update temperature (err %d)", err);
+            bluetooth_set_error(ERROR_TEMPERATURE);
+        }
+
+        IF_ERR(water_level_update()) {
+            LOG_ERR("Failed to update temperature (err %d)", err);
+            bluetooth_set_error(ERROR_WATER_LEVEL);
+        }
+
+        IF_ERR(battery_update()) {
+            LOG_ERR("Failed to update battery (err %d)", err);
+            bluetooth_set_error(ERROR_BATTERY);
+        }
+
+        bluetooth_set_status(STATUS_NEW_DATA, true);
+
+        k_timer_status_sync(&update_timer);
+    }
+#pragma clang diagnostic pop
+}
+
+
+K_THREAD_STACK_DEFINE(update_thread_stack, 1024);
+struct k_thread update_thread_data;
 
 void main(void) {
     int err = 0;
-    int cnt = 0;
-    struct device* gpio;
 
-    IF_ERR (bluetooth_init()) {
-        LOG_ERR("Bluetooth initialization failed (err %d)", err);
+    IF_ERR(settings_subsys_init()) {
+        LOG_ERR("Settings initialization failed (err %d)", err);
     }
     IF_ERR (battery_init()) {
         LOG_ERR("Battery initialization failed (err %d)", err);
@@ -32,66 +63,17 @@ void main(void) {
     IF_ERR (temperature_init()) {
         LOG_ERR("Temperature initialization failed (err %d)", err);
     }
-
-    gpio = device_get_binding(LED_PORT);
-    if (!gpio) {
-        LOG_ERR("GPIO initialization failed");
-        return;
+    IF_ERR(water_level_init()) {
+        LOG_ERR("Water level initialization failed (err %d)", err);
+    }
+    IF_ERR (bluetooth_init()) {
+        LOG_ERR("Bluetooth initialization failed (err %d)", err);
     }
 
-    // Set LED pin as output
-    gpio_pin_configure(gpio, LED, GPIO_DIR_OUT);
-
-    struct device* rangefinder = device_get_binding(DT_JSN_SR04T_RANGEFINDER_LABEL);
-    if (!rangefinder) {
-        LOG_ERR("Rangefinder initialization failed: %s", DT_JSN_SR04T_RANGEFINDER_LABEL);
-        return;
-    }
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-    for (;;) {
-
-        temperature_update();
-
-        device_set_power_state(rangefinder, DEVICE_PM_ACTIVE_STATE, NULL, NULL);
-
-        u32_t distance_mm_avg = 0;
-
-        for (int i = 0; i < NUM_SAMPLES;) {
-            // Set pin to HIGH/LOW every 1 second
-            gpio_pin_write(gpio, LED, cnt % 2);
-            ++cnt;
-
-            err = sensor_sample_fetch(rangefinder);
-            if (!err) {
-                struct sensor_value distance;
-                sensor_channel_get(rangefinder, SENSOR_CHAN_DISTANCE, &distance);
-
-                ++i;
-                u32_t distance_mm = (u32_t) (distance.val1 * 1000 + distance.val2 / 1000);
-                distance_mm_avg += distance_mm;
-
-                printk("Distance: %d mm\n", distance_mm);
-            } else {
-                LOG_ERR("Failed to get rangefinder (err %d)", err);
-            }
-
-            k_sleep(50);
-        }
-
-        device_set_power_state(rangefinder, DEVICE_PM_OFF_STATE, NULL, NULL);
-
-        distance_mm_avg /= NUM_SAMPLES;
-        printk("Distance (avg): %d mm\n", distance_mm_avg);
-
-        bluetooth_set_water_level((u16_t) distance_mm_avg);
-
-        IF_ERR(battery_update()) {
-            LOG_ERR("Failed to update battery (err %d)", err);
-        }
-
-        k_sleep(SLEEP_TIME);
-    }
-#pragma clang diagnostic pop
+    k_tid_t update_thread_id = k_thread_create(
+            &update_thread_data,
+            update_thread_stack, K_THREAD_STACK_SIZEOF(update_thread_stack),
+            update_thread, NULL, NULL, NULL,
+            K_PRIO_PREEMPT(5), 0, K_NO_WAIT
+    );
 }

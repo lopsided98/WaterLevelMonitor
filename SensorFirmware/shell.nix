@@ -2,11 +2,9 @@ let
   pkgs = import <nixpkgs> { overlays = [ (import ../nix) ]; };
 in
 
-with pkgs;
+with pkgs.pkgsCross.arm-embedded.buildPackages;
 
-let 
-  gcc = pkgsCross.arm-embedded.buildPackages.gcc9;
-  binutils = pkgsCross.arm-embedded.buildPackages.binutils;
+let
   toolchain = buildEnv {
     name = "arm-toolchain";
     paths = [ gcc binutils ];
@@ -24,6 +22,8 @@ in mkShell {
     west
     pyelftools
     gcovr
+    openocd
+    gdb
   ];
 
   # Have to use Arch's GCC for now because Nix's causes crashes

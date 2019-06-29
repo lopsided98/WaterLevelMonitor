@@ -14,10 +14,7 @@ static struct device* battery;
 
 int battery_init(void) {
     battery = device_get_binding(DT_NORDIC_ADC_SUPPLY_BATTERY_LABEL);
-    if (!battery) {
-        LOG_ERR("Could not find battery");
-        return -EINVAL;
-    }
+    if (!battery) return -ENODEV;
 
     return 0;
 }
@@ -35,7 +32,7 @@ int battery_update(void) {
     u8_t level = (millivolts - BATTERY_EMPTY_MILLIVOLTS) * 100
                  / (BATTERY_FULL_MILLIVOLTS - BATTERY_EMPTY_MILLIVOLTS);
 
-    level = MAX(level, 100);
+    level = MIN(level, 100);
 
     LOG_DBG("Battery state: %d%%, %d.%d V\n", level, voltage.val1, voltage.val2);
 
