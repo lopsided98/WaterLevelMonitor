@@ -1,5 +1,5 @@
-#include <sensor.h>
-#include <adc.h>
+#include <drivers/sensor.h>
+#include <drivers/adc.h>
 #include <logging/log.h>
 #include "battery.h"
 #include "common.h"

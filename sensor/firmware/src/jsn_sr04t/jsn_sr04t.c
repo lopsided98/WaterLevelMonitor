@@ -1,5 +1,4 @@
-#include <gpio.h>
-#include <sensor.h>
+#include <drivers/gpio.h>
 #include <logging/log.h>
 
 #include "../common.h"
@@ -51,8 +50,8 @@ int sr04t_sample_fetch(struct device* dev, enum sensor_channel chan) {
 
     // Wait for interrupt processing to finish
     // FIXME: causes BLE stack to crash under load
-//    err = k_sem_take(&data->echo_end_sem, K_MSEC(CONFIG_JSN_SR04T_ECHO_TIMEOUT));
-    k_sleep(CONFIG_JSN_SR04T_ECHO_TIMEOUT);
+    err = k_sem_take(&data->echo_end_sem, K_MSEC(CONFIG_JSN_SR04T_ECHO_TIMEOUT));
+    // k_sleep(CONFIG_JSN_SR04T_ECHO_TIMEOUT);
     __ASSERT_NO_MSG(err != -EBUSY);
     if (err == -EAGAIN) {
         // Timeout

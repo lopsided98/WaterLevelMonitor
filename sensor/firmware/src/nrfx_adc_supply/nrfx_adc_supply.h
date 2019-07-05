@@ -1,7 +1,7 @@
 #pragma once
 
 #include <device.h>
-#include <sensor.h>
+#include <drivers/sensor.h>
 
 
 struct nrfx_adc_supply_data {

@@ -12,6 +12,7 @@ let
   };
 in mkShell {
   name = "water-level-monitor-env";
+  disableHardening = [ "all" ];
   nativeBuildInputs = [
     which
     git

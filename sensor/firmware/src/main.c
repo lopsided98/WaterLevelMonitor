@@ -1,7 +1,7 @@
 #include <zephyr.h>
 #include <device.h>
-#include <gpio.h>
-#include <sensor.h>
+#include <drivers/gpio.h>
+#include <drivers/sensor.h>
 #include <logging/log.h>
 #include <settings/settings.h>
 #include "bluetooth.h"
@@ -9,6 +9,10 @@
 #include "common.h"
 #include "temperature.h"
 #include "water_level.h"
+
+#ifdef CONFIG_MCUMGR_CMD_IMG_MGMT
+#include <img_mgmt/img_mgmt.h>
+#endif
 
 LOG_MODULE_REGISTER(main);
 
@@ -57,6 +61,11 @@ void main(void) {
     IF_ERR(settings_subsys_init()) {
         LOG_ERR("Settings initialization failed (err %d)", err);
     }
+
+#ifdef CONFIG_MCUMGR_CMD_IMG_MGMT
+        img_mgmt_register_group();
+#endif
+
     IF_ERR (battery_init()) {
         LOG_ERR("Battery initialization failed (err %d)", err);
     }
@@ -70,7 +79,7 @@ void main(void) {
         LOG_ERR("Bluetooth initialization failed (err %d)", err);
     }
 
-    k_tid_t update_thread_id = k_thread_create(
+    k_thread_create(
             &update_thread_data,
             update_thread_stack, K_THREAD_STACK_SIZEOF(update_thread_stack),
             update_thread, NULL, NULL, NULL,

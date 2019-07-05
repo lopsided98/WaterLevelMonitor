@@ -1,5 +1,5 @@
 #include <device.h>
-#include <sensor.h>
+#include <drivers/sensor.h>
 #include <logging/log.h>
 #include <settings/settings.h>
 #include "temperature.h"

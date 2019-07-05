@@ -4,7 +4,7 @@
 #include <bluetooth/gatt.h>
 #include <logging/log.h>
 #include <settings/settings.h>
-#include <misc/reboot.h>
+#include <mgmt/smp_bt.h>
 #include "bluetooth.h"
 #include "common.h"
 #include "water_level.h"
@@ -64,7 +64,7 @@ static const struct bt_data ad[] = {
                       0x0F, 0x18, // Battery Service (0x180F)
                       0x1A, 0x18 // Environmental Sensing Service (0x181A)
         ),
-        BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_WLS_VAL)
+        BT_DATA_BYTES(BT_DATA_UUID128_SOME, BT_UUID_WLS_VAL)
 };
 
 static const struct bt_data sd[] = {
@@ -127,8 +127,8 @@ BT_GATT_SERVICE_DEFINE(
 static struct bt_uuid_128 bt_uuid_scs = BT_UUID_INIT_128(BT_UUID_SCS_VAL);
 
 static struct bt_uuid_128 bt_uuid_scs_error = BT_UUID_INIT_128(
-        0xa1, 0xf8, 0x20, 0x10, 0xa2, 0xc0, 0x4e, 0x72,
-        0x8e, 0x88, 0x61, 0x96, 0xcb, 0xdf, 0xef, 0x89
+        0xe3, 0xf1, 0x14, 0x77, 0xc3, 0xcb, 0x4a, 0xa7,
+        0xbd, 0xc6, 0x7b, 0x84, 0x83, 0x2f, 0x5f, 0xc2
 );
 
 static struct bt_uuid_128 bt_uuid_scs_status = BT_UUID_INIT_128(
@@ -325,10 +325,6 @@ static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt
 
     LOG_INF("New status: %08x", atomic_get(&status));
 
-    if (status & STATUS_REBOOT) {
-        sys_reboot(SYS_REBOOT_COLD);
-    }
-
     // Stop advertising if the client confirms that it has read the data
 //    if (!(status & STATUS_NEW_DATA)) {
 //        bt_le_adv_stop();
@@ -342,7 +338,10 @@ int bluetooth_init(void) {
 
     RET_ERR(bt_enable(bluetooth_ready));
 
-    return err;
+    // Setup mcumgr over BLE
+    RET_ERR(smp_bt_register());
+
+    return 0;
 }
 
 int bluetooth_set_battery_level(u8_t level) {

@@ -10,7 +10,6 @@ enum system_error {
 
 enum system_status {
     STATUS_NEW_DATA = BIT(0),
-    STATUS_REBOOT = BIT(1)
 };
 
 int bluetooth_init(void);

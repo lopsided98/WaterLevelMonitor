@@ -1,7 +1,6 @@
-#include <gpio.h>
-#include <sensor.h>
 #include <logging/log.h>
-#include <adc.h>
+#include <drivers/gpio.h>
+#include <drivers/adc.h>
 #include <soc.h>
 
 #include "../common.h"

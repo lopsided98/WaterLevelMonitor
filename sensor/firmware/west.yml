@@ -1,6 +1,8 @@
 west:
   revision: v0.5.8
 manifest:
+  defaults:
+    remote: zephyr
   remotes:
     - name: zephyr
       url-base: https://github.com/zephyrproject-rtos
@@ -8,11 +10,19 @@ manifest:
       url-base: https://github.com/JuulLabs-OSS
   projects:
     - name: zephyr
-      remote: zephyr
+      revision: e5e2eb799e3259b31ff0473cbc203f3243bfc85c
       west-commands: scripts/west-commands.yml
     - name: mbedtls
-      remote: zephyr
       revision: ca32746072ce3381f1c9ae46ba6cd34c69f8c0ee
       path: zephyr/modules/crypto/mbedtls
+    - name: mcumgr
+      revision: 84934959d2d1722a23b7e7e200191ae4a6f96168
+      path: zephyr/modules/lib/mcumgr
+    - name: tinycbor
+      path: zephyr/modules/lib/tinycbor
+      revision: 31ae89e4b768612722620cb6cb173a0de4a19cc9
     - name: mcuboot
       remote: juullabs-oss
+      revision: 61989661aa5c4eeb2872f18a85a9ace06cf6a110
+  self:
+    path: firmware

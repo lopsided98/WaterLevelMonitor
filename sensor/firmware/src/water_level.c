@@ -1,6 +1,6 @@
 #include <device.h>
 #include <logging/log.h>
-#include <sensor.h>
+#include <drivers/sensor.h>
 #include <settings/settings.h>
 #include "water_level.h"
 #include "bluetooth.h"
@@ -11,35 +11,34 @@ LOG_MODULE_REGISTER(water_level);
 #define NUM_WATER_SAMPLES 10
 #define MAX_WATER_SAMPLE_ATTEMPTS 20
 
-static int water_level_settings_set(int argc, char** argv, size_t len, settings_read_cb read_cb, void* cb_arg);
-
 static struct device* rangefinder;
 
 static u16_t water_level = 0; // mm
 static u16_t tank_depth = 2000; // mm
 
-static struct settings_handler water_level_settings = {
-        .name = "wl",
-        .h_set = water_level_settings_set
-};
-
-static int water_level_settings_set(int argc, char** argv, size_t len, settings_read_cb read_cb, void* cb_arg) {
+static int water_level_settings_set(const char* key, size_t len_rd, settings_read_cb read_cb, void* cb_arg) {
     int err = 0;
-    if (argc == 1) {
-        if (!strcmp(argv[0], "td")) {
-            err = read_cb(cb_arg, &tank_depth, sizeof(tank_depth));
-        }
+    int len = settings_name_next(key, NULL);
+    if (!strncmp(key, "td", len)) {
+        RET_ERR(read_cb(cb_arg, &tank_depth, sizeof(tank_depth)));
+    } else {
+        return -ENOENT;
     }
-    return err < 0 ? err : 0;
+    return 0;
 }
 
-int water_level_init(void) {
-    int err = 0;
+SETTINGS_STATIC_HANDLER_DEFINE(
+        water_level_settings,
+        "wl",
+        NULL,
+        water_level_settings_set,
+        NULL,
+        NULL
+);
 
+int water_level_init(void) {
     rangefinder = device_get_binding(DT_JSN_SR04T_RANGEFINDER_LABEL);
     if (!rangefinder) return -ENODEV;
-
-    RET_ERR(settings_register(&water_level_settings));
 
     return 0;
 }
@@ -75,7 +74,7 @@ int water_level_update(void) {
     }
 
     distance_mm_avg /= samples;
-    printk("Distance (avg): %d mm\n", distance_mm_avg);
+    LOG_INF("Distance (avg): %d mm", distance_mm_avg);
 
     water_level = tank_depth > distance_mm_avg ? tank_depth - distance_mm_avg : 0;
 

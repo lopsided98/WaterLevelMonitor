@@ -1,7 +1,7 @@
 #pragma once
 
 #include <device.h>
-#include <sensor.h>
+#include <drivers/sensor.h>
 
 enum sr04t_state {
     STATE_OFF = 0,
