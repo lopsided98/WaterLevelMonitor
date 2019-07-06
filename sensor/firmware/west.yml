@@ -23,6 +23,6 @@ manifest:
       revision: 31ae89e4b768612722620cb6cb173a0de4a19cc9
     - name: mcuboot
       remote: juullabs-oss
-      revision: 61989661aa5c4eeb2872f18a85a9ace06cf6a110
+      revision: 63a2bdbda95f8c62d6fc93c863a15fc9279daae2
   self:
     path: firmware

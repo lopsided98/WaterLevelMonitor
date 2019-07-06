@@ -14,6 +14,7 @@ LOG_MODULE_REGISTER(water_level);
 static struct device* rangefinder;
 
 static u16_t water_level = 0; // mm
+static u16_t water_distance = 0; // mm
 static u16_t tank_depth = 2000; // mm
 
 static int water_level_settings_set(const char* key, size_t len_rd, settings_read_cb read_cb, void* cb_arg) {
@@ -76,6 +77,7 @@ int water_level_update(void) {
     distance_mm_avg /= samples;
     LOG_INF("Distance (avg): %d mm", distance_mm_avg);
 
+    water_distance = distance_mm_avg;
     water_level = tank_depth > distance_mm_avg ? tank_depth - distance_mm_avg : 0;
 
     return 0;
@@ -83,6 +85,10 @@ int water_level_update(void) {
 
 u16_t water_level_get(void) {
     return water_level;
+}
+
+u16_t water_level_get_water_distance(void) {
+    return water_distance;
 }
 
 u16_t water_level_get_tank_depth(void) {

@@ -40,6 +40,9 @@ static ssize_t bluetooth_temperature_read(struct bt_conn* conn, const struct bt_
 static ssize_t bluetooth_water_level_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
                                           void* buf, u16_t len, u16_t offset);
 
+static ssize_t bluetooth_water_distance_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
+                                             void* buf, u16_t len, u16_t offset);
+
 static ssize_t bluetooth_tank_depth_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
                                          void* buf, u16_t len, u16_t offset);
 
@@ -93,13 +96,18 @@ BT_GATT_SERVICE_DEFINE(
 static struct bt_uuid_128 bt_uuid_wls = BT_UUID_INIT_128(BT_UUID_WLS_VAL);
 
 static struct bt_uuid_128 bt_uuid_wls_water_level = BT_UUID_INIT_128(
-        0x01, 0xc7, 0xe3, 0x01, 0xfa, 0xaf, 0x11, 0xe8,
-        0x8b, 0xe5, 0x07, 0x9b, 0x30, 0x95, 0xdd, 0x67
+        0x24, 0x4c, 0xbc, 0x99, 0x57, 0x6d, 0x4e, 0x4a,
+        0xb5, 0xa1, 0x9a, 0x72, 0xa5, 0xe6, 0xf2, 0x7a
+);
+
+static struct bt_uuid_128 bt_uuid_wls_water_distance = BT_UUID_INIT_128(
+        0x01, 0x31, 0x2d, 0x06, 0x4f, 0xa7, 0x42, 0x94,
+        0x82, 0x3b, 0x84, 0x47, 0x54, 0x55, 0x47, 0xfe
 );
 
 static struct bt_uuid_128 bt_uuid_wls_tank_depth = BT_UUID_INIT_128(
-        0x01, 0xc7, 0xe3, 0x02, 0xfa, 0xaf, 0x11, 0xe8,
-        0x8b, 0xe5, 0x07, 0x9b, 0x30, 0x95, 0xdd, 0x67
+        0xd3, 0xc6, 0xec, 0xcb, 0x2f, 0x4a, 0x49, 0x8c,
+        0xbf, 0xde, 0x5c, 0x76, 0x3d, 0xee, 0x57, 0xd3
 );
 
 static const struct bt_gatt_cpf wls_water_level_cpf = {
@@ -115,25 +123,28 @@ BT_GATT_SERVICE_DEFINE(
                                BT_GATT_PERM_READ_AUTHEN,
                                bluetooth_water_level_read, NULL, NULL),
         BT_GATT_CPF(&wls_water_level_cpf),
-        BT_GATT_CUD("Distance to Water (m)", BT_GATT_PERM_READ_AUTHEN),
+        BT_GATT_CHARACTERISTIC(&bt_uuid_wls_water_distance.uuid,
+                               BT_GATT_CHRC_READ,
+                               BT_GATT_PERM_READ_AUTHEN,
+                               bluetooth_water_distance_read, NULL, NULL),
+        BT_GATT_CPF(&wls_water_level_cpf),
         BT_GATT_CHARACTERISTIC(&bt_uuid_wls_tank_depth.uuid,
                                BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                                BT_GATT_PERM_READ_AUTHEN | BT_GATT_PERM_WRITE_AUTHEN,
                                bluetooth_tank_depth_read, bluetooth_tank_depth_write, NULL),
         BT_GATT_CPF(&wls_water_level_cpf),
-        BT_GATT_CUD("Tank Depth (m)", BT_GATT_PERM_READ_AUTHEN)
 );
 
 static struct bt_uuid_128 bt_uuid_scs = BT_UUID_INIT_128(BT_UUID_SCS_VAL);
 
 static struct bt_uuid_128 bt_uuid_scs_error = BT_UUID_INIT_128(
         0xe3, 0xf1, 0x14, 0x77, 0xc3, 0xcb, 0x4a, 0xa7,
-        0xbd, 0xc6, 0x7b, 0x84, 0x83, 0x2f, 0x5f, 0xc2
+        0xbd, 0xc6, 0x7b, 0x84, 0x83, 0x2f, 0x5f, 0xc26
 );
 
 static struct bt_uuid_128 bt_uuid_scs_status = BT_UUID_INIT_128(
-        0xa1, 0xf8, 0x20, 0x11, 0xa2, 0xc0, 0x4e, 0x72,
-        0x8e, 0x88, 0x61, 0x96, 0xcb, 0xdf, 0xef, 0x89
+        0x5b, 0x32, 0xf5, 0x09, 0xf9, 0x61, 0x4b, 0x28,
+        0x95, 0xc1, 0xd4, 0xed, 0xae, 0x5d, 0xc1, 0x57
 );
 
 BT_GATT_SERVICE_DEFINE(
@@ -143,12 +154,10 @@ BT_GATT_SERVICE_DEFINE(
                                BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                                BT_GATT_PERM_READ_AUTHEN | BT_GATT_PERM_WRITE_AUTHEN,
                                bluetooth_error_read, bluetooth_error_write, NULL),
-        BT_GATT_CUD("System Errors", BT_GATT_PERM_READ_AUTHEN),
         BT_GATT_CHARACTERISTIC(&bt_uuid_scs_status.uuid,
                                BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                                BT_GATT_PERM_READ_AUTHEN | BT_GATT_PERM_WRITE_AUTHEN,
                                bluetooth_status_read, bluetooth_status_write, NULL),
-        BT_GATT_CUD("System Status/Control", BT_GATT_PERM_READ_AUTHEN),
 );
 
 static void bluetooth_connected(struct bt_conn* conn, u8_t err) {
@@ -251,6 +260,12 @@ static ssize_t bluetooth_water_level_read(struct bt_conn* conn, const struct bt_
     return bt_gatt_attr_read(conn, attr, buf, len, offset, &water_level, sizeof(water_level));
 }
 
+static ssize_t bluetooth_water_distance_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
+                                             void* buf, u16_t len, u16_t offset) {
+    const u16_t water_distance = water_level_get_water_distance();
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &water_distance, sizeof(water_distance));
+}
+
 static ssize_t bluetooth_tank_depth_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
                                          void* buf, u16_t len, u16_t offset) {
     const u16_t tank_depth = water_level_get_tank_depth();
@@ -278,7 +293,6 @@ static ssize_t bluetooth_error_read(struct bt_conn* conn, const struct bt_gatt_a
 
 static ssize_t bluetooth_error_write(struct bt_conn* conn, const struct bt_gatt_attr* attr,
                                      const void* buf, u16_t len, u16_t offset, u8_t flags) {
-    LOG_INF("write error, len: %d, offset: %d", len, offset);
     if (offset + len > sizeof(error)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
@@ -288,12 +302,8 @@ static ssize_t bluetooth_error_write(struct bt_conn* conn, const struct bt_gatt_
     memcpy(((u8_t*) &error_write) + offset, buf, len);
     memset(((u8_t*) &mask_write) + offset, 0xff, len);
 
-    LOG_INF("Write: %08x, mask: %08x", error_write, mask_write);
-
     // Don't let the user set error bits, only clear
     atomic_and(&error, ~mask_write | error_write);
-
-    LOG_INF("New error: %08x", atomic_get(&error));
 
     return len;
 }
@@ -305,7 +315,6 @@ static ssize_t bluetooth_status_read(struct bt_conn* conn, const struct bt_gatt_
 
 static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt_attr* attr,
                                       const void* buf, u16_t len, u16_t offset, u8_t flags) {
-    LOG_INF("write status, len: %d, offset: %d", len, offset);
     if (offset + len > sizeof(status)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
@@ -315,15 +324,11 @@ static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt
     memcpy(((u8_t*) &status_write) + offset, buf, len);
     memset(((u8_t*) &mask_write) + offset, 0xff, len);
 
-    LOG_INF("Write: %08x, mask: %08x", status_write, mask_write);
-
     // Only set bits specified by the write mask
     // FIXME: this is cheating because we don't use atomic operations. It
     //  should be fine though because this function is called from a
     //  cooperative thread.
     status = (status & ~mask_write) | status_write;
-
-    LOG_INF("New status: %08x", atomic_get(&status));
 
     // Stop advertising if the client confirms that it has read the data
 //    if (!(status & STATUS_NEW_DATA)) {
@@ -356,6 +361,10 @@ int bluetooth_set_temperature(s16_t temp) {
 
 void bluetooth_set_error(enum system_error e) {
     atomic_or(&error, e);
+}
+
+bool bluetooth_get_error(enum system_error e) {
+    return error & e;
 }
 
 void bluetooth_set_status(enum system_status s, bool value) {

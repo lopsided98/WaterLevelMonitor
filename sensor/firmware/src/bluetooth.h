@@ -5,7 +5,8 @@
 enum system_error {
     ERROR_TEMPERATURE = BIT(0),
     ERROR_BATTERY = BIT(1),
-    ERROR_WATER_LEVEL = BIT(2)
+    ERROR_WATER_LEVEL = BIT(2),
+    ERROR_BROWNOUT = BIT(3),
 };
 
 enum system_status {
@@ -30,6 +31,13 @@ int bluetooth_set_temperature(s16_t temp);
  * @param e error bit to set
  */
 void bluetooth_set_error(enum system_error e);
+
+/**
+ * Check whether an error bit is set.
+ *
+ * @param e error bit to get
+ */
+bool bluetooth_get_error(enum system_error e);
 
 /**
  * Set the value of a status bit.

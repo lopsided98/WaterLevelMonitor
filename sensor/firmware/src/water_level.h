@@ -6,6 +6,8 @@ int water_level_update(void);
 
 u16_t water_level_get(void);
 
+u16_t water_level_get_water_distance(void);
+
 u16_t water_level_get_tank_depth(void);
 
 /**
