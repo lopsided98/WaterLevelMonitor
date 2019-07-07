@@ -227,6 +227,8 @@ static void bluetooth_ready(int err) {
 
     IF_ERR(bt_passkey_set(CONFIG_BT_DEFAULT_PASSKEY)) {
         LOG_ERR("Setting passkey failed (err %d)\n", err);
+        // This would be a security issue
+        return;
     }
 
     bt_conn_cb_register(&conn_callbacks);
