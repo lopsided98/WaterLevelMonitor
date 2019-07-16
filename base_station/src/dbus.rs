@@ -11,7 +11,7 @@ use log::debug;
 #[derive(Debug, Fail)]
 pub struct TypedError {
     #[fail(cause)]
-    cause: dbus::Error,
+    pub cause: dbus::Error,
     pub kind: ErrorKind,
 }
 

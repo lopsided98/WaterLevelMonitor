@@ -17,12 +17,14 @@ use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
 use failure::Fail;
 use log::debug;
 
+use crate::bluez::Battery1;
 use crate::bluez::Device1;
 use crate::bluez::GattCharacteristic1;
 use crate::dbus::RefArgCast;
 
 const BUS_NAME: &str = "org.bluez";
 const DEVICE_INTERFACE: &str = "org.bluez.Device1";
+const BATTERY_INTERFACE: &str = "org.bluez.Battery1";
 const GATT_CHARACTERISTIC_INTERFACE: &str = "org.bluez.GattCharacteristic1";
 const GATT_DESCRIPTOR_INTERFACE: &str = "org.bluez.GattDescriptor1";
 
@@ -117,11 +119,11 @@ impl<'a, T: 'static + for<'b> dbus::arg::Get<'b> + RefArgCast> Iterator for Prop
 
                     if interface_name == self.interface {
                         if let Some(value) = changed_properties.get(self.property.as_ref()) {
-                            return  Some(T::ref_arg_cast(&value.0).map_err(Error::from));
+                            return Some(T::ref_arg_cast(&value.0).map_err(Error::from));
                         } else if invalidated_properties.iter().any(|p| p == &self.property) {
                             match self.get() {
                                 // Ignore missing property and continue waiting
-                                Err(Error::DBus(DBusError {kind: crate::dbus::ErrorKind::InvalidArgs, ..})) => (),
+                                Err(Error::DBus(DBusError { kind: crate::dbus::ErrorKind::InvalidArgs, .. })) => (),
                                 v => return Some(v)
                             };
                         }
@@ -166,13 +168,13 @@ impl SensorManager {
 
     fn process_interface_signal<F: FnOnce(&dbus::Path, &DBusObject)>(&mut self, msg: &dbus::Message, f: F) {
         if let Some(ObjectManagerInterfacesAdded { object: path, interfaces }) = ObjectManagerInterfacesAdded::from_message(&msg) {
+            let all_interfaces = self.objs.entry(path.clone())
+                .or_default();
+            all_interfaces.extend(interfaces);
             // This method really has no business executing a closure. It should just return
             // references to the new path and object, but it is currently impossible to get a
             // reference to a key owned by a HashMap.
-            f(&path, &interfaces);
-            self.objs.entry(path)
-                .or_default()
-                .extend(interfaces);
+            f(&path, &all_interfaces);
         } else if let Some(ObjectManagerInterfacesRemoved { object: path, interfaces }) = ObjectManagerInterfacesRemoved::from_message(&msg) {
             match self.objs.entry(path) {
                 Entry::Occupied(mut e) => {
@@ -230,28 +232,10 @@ impl SensorManager {
                     conn: conn.clone(),
                     dest: BUS_NAME.into(),
                     path: path.clone().into_static(),
-                    timeout: 15000,
+                    timeout: 30000,
                 })
         }, timeout_ms)
             .ok_or(Error::SensorNotFound { id: address.to_owned().into() })
-            .and_then(move |device| Sensor::new(self, device))
-    }
-
-    pub fn get_sensor_by_name(&mut self, name: &str, timeout_ms: Option<u32>) -> Result<Sensor, Error> {
-        let conn = self.conn.clone();
-        self.find_object(|path, obj| {
-            obj.get(DEVICE_INTERFACE.into())
-                .and_then(|props| props.get("Name"))
-                .and_then(dbus::arg::Variant::as_str)
-                .and_then(|v| if v == name { Some(()) } else { None })
-                .map(|_| DBusPath {
-                    conn: conn.clone(),
-                    dest: BUS_NAME.into(),
-                    path: path.clone().into_static(),
-                    timeout: 15000,
-                })
-        }, timeout_ms)
-            .ok_or(Error::SensorNotFound { id: name.to_owned().into() })
             .and_then(move |device| Sensor::new(self, device))
     }
 }
@@ -259,7 +243,7 @@ impl SensorManager {
 pub struct Sensor<'a> {
     manager: &'a mut SensorManager,
     device: DBusPath,
-    bas_battery_level: Option<DBusPath>,
+    battery: Option<DBusPath>,
     ess_temperature: Option<DBusPath>,
     wls_water_level: Option<DBusPath>,
     wls_water_distance: Option<DBusPath>,
@@ -290,25 +274,25 @@ impl<'a> Sensor<'a> {
     const SCS_STATUS_UUID: &'static str = "57c15dae-edd4-c195-284b-61f909f5325b";
 
     fn new(manager: &'a mut SensorManager, device: dbus::ConnPath<'static, Rc<dbus::Connection>>) -> Result<Self, Error> {
-//        if device.get_paired().map_err(Error::DBus)? {
-        Ok(Sensor {
-            manager,
-            device,
-            bas_battery_level: None,
-            ess_temperature: None,
-            wls_water_level: None,
-            wls_water_distance: None,
-            wls_tank_depth: None,
-            scs_error: None,
-            scs_status: None,
-        })
-//        } else {
-//            Err(Error::SensorInvalid("not paired".into()))
-//        }
+        if device.get_paired()? {
+            Ok(Sensor {
+                manager,
+                device,
+                battery: None,
+                ess_temperature: None,
+                wls_water_level: None,
+                wls_water_distance: None,
+                wls_tank_depth: None,
+                scs_error: None,
+                scs_status: None,
+            })
+        } else {
+            Err(Error::SensorInvalid("not paired".into()))
+        }
     }
 
     fn find_gatt_attributes(&mut self) -> Result<(), Error> {
-        let mut bas_battery_level: Option<DBusPath> = None;
+        let mut battery: Option<DBusPath> = None;
         let mut ess_temperature: Option<DBusPath> = None;
         let mut wls_water_level: Option<DBusPath> = None;
         let mut wls_water_distance: Option<DBusPath> = None;
@@ -317,30 +301,36 @@ impl<'a> Sensor<'a> {
         let mut scs_status: Option<DBusPath> = None;
 
         let conn = self.manager.conn.clone();
+        let self_path = self.device.path.clone();
         self.manager.find_objects(|path, obj| {
-            if let Some(uuid) = obj.get(GATT_CHARACTERISTIC_INTERFACE.into())
-                .or_else(|| obj.get(GATT_DESCRIPTOR_INTERFACE.into()))
-                .and_then(|props| props.get("UUID"))
-                .and_then(dbus::arg::Variant::as_str) {
-                if let Some(char) = match uuid {
-                    Self::BAS_BATTERY_LEVEL_UUID => Some(&mut bas_battery_level),
-                    Self::ESS_TEMPERATURE_UUID => Some(&mut ess_temperature),
-                    Self::WLS_WATER_LEVEL_UUID => Some(&mut wls_water_level),
-                    Self::WLS_WATER_DISTANCE_UUID => Some(&mut wls_water_distance),
-                    Self::WLS_TANK_DEPTH_UUID => Some(&mut wls_tank_depth),
-                    Self::SCS_ERROR_UUID => Some(&mut scs_error),
-                    Self::SCS_STATUS_UUID => Some(&mut scs_status),
-                    _ => None
-                } {
-                    *char = Some(dbus::ConnPath {
-                        conn: conn.clone(),
-                        dest: BUS_NAME.into(),
-                        path: path.clone().into_static(),
-                        timeout: 1000,
+            if let Some(props) = obj
+                .get(GATT_CHARACTERISTIC_INTERFACE.into())
+                .or_else(|| obj.get(GATT_DESCRIPTOR_INTERFACE.into())) {
+                props.get("UUID")
+                    .and_then(dbus::arg::Variant::as_str)
+                    .and_then(|uuid| match uuid {
+                        Self::ESS_TEMPERATURE_UUID => Some(&mut ess_temperature),
+                        Self::WLS_WATER_LEVEL_UUID => Some(&mut wls_water_level),
+                        Self::WLS_WATER_DISTANCE_UUID => Some(&mut wls_water_distance),
+                        Self::WLS_TANK_DEPTH_UUID => Some(&mut wls_tank_depth),
+                        Self::SCS_ERROR_UUID => Some(&mut scs_error),
+                        Self::SCS_STATUS_UUID => Some(&mut scs_status),
+                        _ => None
                     })
-                }
-            }
-            bas_battery_level.is_some() &&
+            } else if path == &self_path && obj.contains_key(BATTERY_INTERFACE.into()) {
+                Some(&mut battery)
+            } else {
+                None
+            }.map(|char| {
+                *char = Some(dbus::ConnPath {
+                    conn: conn.clone(),
+                    dest: BUS_NAME.into(),
+                    path: path.clone().into_static(),
+                    timeout: 1000,
+                });
+            });
+
+            battery.is_some() &&
                 ess_temperature.is_some() &&
                 wls_water_level.is_some() &&
                 wls_water_distance.is_some() &&
@@ -349,7 +339,7 @@ impl<'a> Sensor<'a> {
                 scs_error.is_some()
         }, Some(5000));
 
-        self.bas_battery_level = bas_battery_level;
+        self.battery = battery;
         self.ess_temperature = ess_temperature;
         self.wls_water_level = wls_water_level;
         self.wls_water_distance = wls_water_distance;
@@ -438,11 +428,14 @@ impl<'a> Sensor<'a> {
                         |s| s.to_le_bytes().to_vec())
     }
 
-    pub fn battery_level(&self) -> Result<u8, Error> {
-        self.read_attr(&self.bas_battery_level,
-                       "BAS Battery Level",
-                       Self::BAS_BATTERY_LEVEL_UUID,
-                       |mut v| v.read_u8())
+    pub fn battery_percentage(&self) -> Result<u8, Error> {
+        self.battery.as_ref()
+            .ok_or(Error::GATTAttributeNotFound {
+                name: "BAS Battery Level".into(),
+                uuid: Self::BAS_BATTERY_LEVEL_UUID.into(),
+            }).and_then(|b| b.get_percentage()
+            .map_err(Error::from))
+            .map(|p| p as u8)
     }
 
     pub fn temperature(&self) -> Result<f32, Error> {

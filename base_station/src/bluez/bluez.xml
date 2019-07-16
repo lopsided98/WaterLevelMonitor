@@ -118,6 +118,9 @@
         <property name="TxPower" type="n" access="read"></property>
         <property name="ServicesResolved" type="b" access="read"></property>
     </interface>
+    <interface name="org.bluez.Battery1">
+        <property name="Percentage" type="y" access="read"></property>
+    </interface>
     <interface name="org.bluez.GattService1">
         <property name="UUID" type="s" access="read"></property>
         <property name="Device" type="o" access="read"></property>
