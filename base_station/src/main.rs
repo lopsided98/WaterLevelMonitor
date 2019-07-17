@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Read;
 use std::time::SystemTime;
 
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use serde::Deserialize;
 
 use crate::influxdb::{TimestampPrecision, Value};
@@ -52,10 +52,12 @@ fn collect_data(sensor: &mut sensor::Sensor, timeout_ms: u32, first: bool) -> Re
     // Get timestamp as close as possible to when the data was collected
     point.set_timestamp(influxdb::Timestamp::new(SystemTime::now(), TimestampPrecision::Second));
 
-    // FIXME: don't fail if already connected
-    sensor.connect()
-        .context("Connect failed")?;
-
+    match sensor.connect() {
+        Err(sensor::Error::BlueZ(bluez::Error { kind: bluez::ErrorKind::AlreadyConnected, .. })) =>
+            warn!("Already connected to sensor"),
+        Err(e) => Err(e)?,
+        _ => ()
+    };
 
     match sensor.battery_percentage() {
         Ok(battery_percentage) =>
@@ -137,8 +139,10 @@ pub fn main() -> Result<(), failure::Error> {
     let mut first = true;
     loop {
         match collect_data(&mut sensor, config.new_data_timeout, first) {
-            Ok(point) => influxdb.write_point(&point)?,
-            Err(e) => warn!("Failed to collect data: {}", e)
+            Ok(point) => if let Err(e) = influxdb.write_point(&point) {
+                error!("Failed to write data to InfluxDB: {}", e);
+            },
+            Err(e) => error!("Failed to collect data: {}", e)
         };
         first = false;
     }

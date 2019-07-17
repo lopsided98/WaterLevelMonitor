@@ -17,6 +17,7 @@ use dbus::stdintf::org_freedesktop_dbus::PropertiesPropertiesChanged;
 use failure::Fail;
 use log::debug;
 
+use crate::bluez;
 use crate::bluez::Battery1;
 use crate::bluez::Device1;
 use crate::bluez::GattCharacteristic1;
@@ -43,6 +44,8 @@ pub enum Error {
     GATTAttributeNotFound { name: Cow<'static, str>, uuid: Cow<'static, str> },
     #[fail(display = "Invalid data received: {}", 0)]
     InvalidData(#[fail(cause)]  io::Error),
+    #[fail(display = "BlueZ error: {}", 0)]
+    BlueZ(#[fail(cause)] bluez::Error),
     #[fail(display = "DBus error: {}", 0)]
     DBus(#[fail(cause)] DBusError),
 }
@@ -55,7 +58,15 @@ impl From<dbus::Error> for Error {
 
 impl From<DBusError> for Error {
     fn from(e: DBusError) -> Self {
-        Error::DBus(e)
+        if let DBusError { kind: crate::dbus::ErrorKind::Custom, cause } = e {
+            if cause.name().map_or(false, |m| m.starts_with("org.bluez.Error")) {
+                Error::BlueZ(cause.into())
+            } else {
+                Error::DBus(cause.into())
+            }
+        } else {
+            Error::DBus(e)
+        }
     }
 }
 
@@ -301,7 +312,7 @@ impl<'a> Sensor<'a> {
         let mut scs_status: Option<DBusPath> = None;
 
         let conn = self.manager.conn.clone();
-        let self_path = self.device.path.clone();
+        let device_path = self.device.path.clone();
         self.manager.find_objects(|path, obj| {
             if let Some(props) = obj
                 .get(GATT_CHARACTERISTIC_INTERFACE.into())
@@ -317,7 +328,7 @@ impl<'a> Sensor<'a> {
                         Self::SCS_STATUS_UUID => Some(&mut scs_status),
                         _ => None
                     })
-            } else if path == &self_path && obj.contains_key(BATTERY_INTERFACE.into()) {
+            } else if path == &device_path && obj.contains_key(BATTERY_INTERFACE.into()) {
                 Some(&mut battery)
             } else {
                 None
