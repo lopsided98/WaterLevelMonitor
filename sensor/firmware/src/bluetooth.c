@@ -27,7 +27,17 @@ static u8_t battery_level = 0;
 static s16_t temperature = 0;
 
 static atomic_t error = ATOMIC_INIT(0);
-static atomic_t status = ATOMIC_INIT(0);
+
+static u8_t status_sd_data[] = {BT_UUID_SCS_VAL, 0x00, 0x00, 0x00, 0x00};
+static u32_t* status = (u32_t*) &status_sd_data[16];
+
+// FIXME: hack to allow dynamic advertising data
+struct bt_ad {
+    const struct bt_data* data;
+    size_t len;
+};
+
+int set_ad(u16_t hci_op, const struct bt_ad* ad, size_t ad_len);
 
 static void bluetooth_ready(int err);
 
@@ -63,15 +73,15 @@ static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt
 
 static const struct bt_data ad[] = {
         BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
-        BT_DATA_BYTES(BT_DATA_UUID16_ALL,
-                      0x0F, 0x18, // Battery Service (0x180F)
-                      0x1A, 0x18 // Environmental Sensing Service (0x181A)
-        ),
-        BT_DATA_BYTES(BT_DATA_UUID128_SOME, BT_UUID_WLS_VAL)
+        BT_DATA(BT_DATA_SVC_DATA128, status_sd_data, sizeof(status_sd_data))
 };
 
 static const struct bt_data sd[] = {
-        BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1)
+        BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
+        BT_DATA_BYTES(BT_DATA_UUID16_ALL,
+                      0x0F, 0x18, // Battery Service (0x180F)
+                      0x1A, 0x18 // Environmental Sensing Service (0x181A)
+        )
 };
 
 // Battery Service
@@ -139,7 +149,7 @@ static struct bt_uuid_128 bt_uuid_scs = BT_UUID_INIT_128(BT_UUID_SCS_VAL);
 
 static struct bt_uuid_128 bt_uuid_scs_error = BT_UUID_INIT_128(
         0xe3, 0xf1, 0x14, 0x77, 0xc3, 0xcb, 0x4a, 0xa7,
-        0xbd, 0xc6, 0x7b, 0x84, 0x83, 0x2f, 0x5f, 0xc26
+        0xbd, 0xc6, 0x7b, 0x84, 0x83, 0x2f, 0x5f, 0xc2
 );
 
 static struct bt_uuid_128 bt_uuid_scs_status = BT_UUID_INIT_128(
@@ -310,14 +320,21 @@ static ssize_t bluetooth_error_write(struct bt_conn* conn, const struct bt_gatt_
     return len;
 }
 
+static int bluetooth_status_ad_update() {
+    // FIXME: this is not normally a public API
+    struct bt_data ad_data[] = {BT_DATA(BT_DATA_SVC_DATA128, status_sd_data, sizeof(status_sd_data))};
+    struct bt_ad ad_update = {ad_data, ARRAY_SIZE(ad_data)};
+    set_ad(BT_HCI_OP_LE_SET_ADV_DATA, &ad_update, 1);
+}
+
 static ssize_t bluetooth_status_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
                                      void* buf, u16_t len, u16_t offset) {
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &status, sizeof(status));
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, status, sizeof(*status));
 }
 
 static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt_attr* attr,
                                       const void* buf, u16_t len, u16_t offset, u8_t flags) {
-    if (offset + len > sizeof(status)) {
+    if (offset + len > sizeof(*status)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
 
@@ -330,12 +347,14 @@ static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt
     // FIXME: this is cheating because we don't use atomic operations. It
     //  should be fine though because this function is called from a
     //  cooperative thread.
-    status = (status & ~mask_write) | status_write;
+    *status = (*status & ~mask_write) | status_write;
 
     // Stop advertising if the client confirms that it has read the data
 //    if (!(status & STATUS_NEW_DATA)) {
 //        bt_le_adv_stop();
 //    }
+
+    bluetooth_status_ad_update();
 
     return len;
 }
@@ -371,8 +390,10 @@ bool bluetooth_get_error(enum system_error e) {
 
 void bluetooth_set_status(enum system_status s, bool value) {
     if (value) {
-        atomic_or(&status, s);
+        *status |= s;
     } else {
-        atomic_and(&status, ~s);
+        *status &= ~s;
     }
+
+    bluetooth_status_ad_update();
 }
