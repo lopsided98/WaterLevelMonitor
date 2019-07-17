@@ -77,7 +77,6 @@ pub struct PropertyChangedIterator<'a, T> {
     match_str: String,
     interface: Cow<'a, str>,
     property: Cow<'a, str>,
-    first_iter: bool,
     d: PhantomData<T>,
 }
 
@@ -104,7 +103,7 @@ impl<'a, T> PropertyChangedIterator<'a, T> {
         let iter = dbus::ConnMsgs { conn: manager.conn.clone(), timeout_ms };
         manager.conn.add_match(&match_str)?;
 
-        Ok(Self { manager, obj, iter, match_str, interface, property, first_iter: true, d: PhantomData })
+        Ok(Self { manager, obj, iter, match_str, interface, property, d: PhantomData })
     }
 }
 
@@ -126,7 +125,8 @@ impl<'a, T: 'static + for<'b> dbus::arg::Get<'b> + RefArgCast> Iterator for Prop
                                 changed_properties,
                                 invalidated_properties
                             }) = PropertiesPropertiesChanged::from_message(&msg) {
-                    debug!("Interface: {}, chg: {:?} inv: {:?}", interface_name, changed_properties, invalidated_properties);
+                    debug!("properties changed: {}, changed: {:?} invalidated: {:?}",
+                           interface_name, changed_properties, invalidated_properties);
 
                     if interface_name == self.interface {
                         if let Some(value) = changed_properties.get(self.property.as_ref()) {
@@ -388,7 +388,6 @@ impl<'a> Sensor<'a> {
             timeout_ms,
         )? {
             let mut value = value?;
-            debug!("prop: {:?}", value);
             if let Some(data) = value.remove(Self::SCS_UUID) {
                 let status = Cursor::new(data.0)
                     .read_u32::<LittleEndian>()
@@ -437,6 +436,13 @@ impl<'a> Sensor<'a> {
                         "SCS Status",
                         Self::SCS_STATUS_UUID,
                         |s| s.to_le_bytes().to_vec())
+    }
+
+    pub fn errors(&self) -> Result<u32, Error> {
+        self.read_attr(&self.scs_error,
+                       "SCS Error",
+                       Self::SCS_ERROR_UUID,
+                       |mut v| v.read_u32::<LittleEndian>())
     }
 
     pub fn battery_percentage(&self) -> Result<u8, Error> {

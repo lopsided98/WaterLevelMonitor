@@ -2,11 +2,10 @@ use std::fs::File;
 use std::io::Read;
 use std::time::SystemTime;
 
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use serde::Deserialize;
 
 use crate::influxdb::{TimestampPrecision, Value};
-use failure::Fail;
 use failure::ResultExt;
 
 mod bluez;
@@ -91,7 +90,7 @@ fn collect_data(sensor: &mut sensor::Sensor, timeout_ms: u32, first: bool) -> Re
 
     // FIXME: disconnecting is pretty important, so we should probably retry on certain errors
     if let Err(e) = sensor.disconnect() {
-        warn!("Failed to disconnect: {}", e);
+        error!("Failed to disconnect: {}", e);
     }
 
     Ok(point)
