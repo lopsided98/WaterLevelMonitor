@@ -1,5 +1,5 @@
 [package]
-name = "water_level_monitor"
+name = "water_level_base_station"
 version = "0.1.0"
 authors = ["Ben Wolsieffer <benwolsieffer@gmail.com>"]
 edition = "2018"
