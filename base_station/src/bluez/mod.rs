@@ -1,11 +1,16 @@
-use failure::Fail;
-
-// Import generated code
-pub use gen::*;
 use std::fmt;
 use std::fmt::Display;
+use std::rc::Rc;
+
+use failure::Fail;
+
+use Adapter1;
+// Import generated code
+pub use gen::*;
 
 mod gen;
+
+pub type DBusPath = dbus::ConnPath<'static, Rc<dbus::Connection>>;
 
 #[derive(Debug, Fail)]
 pub struct Error {
@@ -88,5 +93,25 @@ impl From<dbus::Error> for Error {
             ErrorKind::Unknown
         };
         Error { cause, kind }
+    }
+}
+
+pub struct Adapter {
+    adapter: DBusPath
+}
+
+impl Adapter {
+    pub fn new(adapter: DBusPath) -> Self {
+        Self { adapter }
+    }
+
+    pub fn start_discovery(&self) -> Result<(), Error> {
+        self.adapter.start_discovery()
+            .map_err(Error::from)
+    }
+
+    pub fn stop_discovery(&self) -> Result<(), Error> {
+        self.adapter.stop_discovery()
+            .map_err(Error::from)
     }
 }

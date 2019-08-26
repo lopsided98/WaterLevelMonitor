@@ -1,7 +1,7 @@
+use std::{io, time};
 use std::borrow::Cow;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::io;
 use std::io::Cursor;
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -19,6 +19,7 @@ use log::debug;
 
 use crate::bluez;
 use crate::bluez::Battery1;
+use crate::bluez::DBusPath;
 use crate::bluez::Device1;
 use crate::bluez::GattCharacteristic1;
 use crate::dbus::RefArgCast;
@@ -31,7 +32,6 @@ const GATT_DESCRIPTOR_INTERFACE: &str = "org.bluez.GattDescriptor1";
 
 type DBusProperties = HashMap<String, dbus::arg::Variant<Box<dbus::arg::RefArg>>>;
 type DBusObject = HashMap<String, DBusProperties>;
-type DBusPath = dbus::ConnPath<'static, Rc<dbus::Connection>>;
 type DBusError = crate::dbus::TypedError;
 
 #[derive(Debug, Fail)]
@@ -119,7 +119,13 @@ impl<'a, T: 'static + for<'b> dbus::arg::Get<'b> + RefArgCast> Iterator for Prop
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
+            let start_time = time::Instant::now();
             if let Some(msg) = self.iter.next() {
+                // Reduce the timeout by the time spent waiting for this message. Without this,
+                // ignored messages can perpetually extend the waiting time.
+                if let Some(t) = self.iter.timeout_ms.as_mut() {
+                    *t -= (time::Instant::now() - start_time).as_millis() as u32;
+                }
                 if let Some(PropertiesPropertiesChanged {
                                 interface_name,
                                 changed_properties,
@@ -378,6 +384,20 @@ impl<'a> Sensor<'a> {
 
     pub fn address(&self) -> Result<String, Error> {
         self.device.get_address().map_err(Error::from)
+    }
+
+    pub fn adapter_path(&self) -> Result<DBusPath, Error> {
+        self.device.get_adapter()
+            .map(|path| DBusPath {
+                conn: self.device.conn.clone(),
+                dest: BUS_NAME.into(),
+                path,
+                timeout: 30000,
+            }).map_err(Error::from)
+    }
+
+    pub fn adapter(&self) -> Result<bluez::Adapter, Error> {
+        Ok(bluez::Adapter::new(self.adapter_path()?))
     }
 
     pub fn wait_new_data(&mut self, timeout_ms: Option<u32>) -> Result<bool, Error> {

@@ -55,7 +55,7 @@ fn collect_data(sensor: &mut sensor::Sensor, timeout_ms: u32, first: bool) -> Re
         Err(sensor::Error::BlueZ(bluez::Error { kind: bluez::ErrorKind::AlreadyConnected, .. })) =>
             warn!("Already connected to sensor"),
         Err(e) => Err(e)?,
-        _ => ()
+        Ok(_) => ()
     };
 
     match sensor.battery_percentage() {
@@ -134,6 +134,9 @@ pub fn main() -> Result<(), failure::Error> {
 
     let mut sensor = mgr.get_sensor_by_address(&config.address, Some(10000))?;
     info!("Using device: {} ({})", sensor.name()?, sensor.address()?);
+
+    let adapter = sensor.adapter()?;
+    adapter.start_discovery()?;
 
     let mut first = true;
     loop {
