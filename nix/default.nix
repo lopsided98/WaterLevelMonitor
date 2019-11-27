@@ -5,25 +5,7 @@ with super.lib;
 let
   pythonOverridesFor = python: python.override (old: {
     packageOverrides = pySelf: pySuper: {
-      gitlint = pySelf.callPackage ./gitlint.nix {
-        arrow = pySelf.arrow.overridePythonAttrs (oldAttrs: rec {
-          version = "0.10.0";
-          src = pySelf.fetchPypi {
-            inherit (oldAttrs) pname;
-            inherit version;
-            sha256 = "08n7q2l69hlainds1byd4lxhwrq7zsw7s640zkqc3bs5jkq0cnc0";
-          };
-        });
-        click = pySelf.click.overridePythonAttrs (oldAttrs: rec {
-          version = "6.7";
-          patches = [];
-          src = pySelf.fetchPypi {
-            inherit (oldAttrs) pname;
-            inherit version;
-            sha256 = "02qkfpykbq35id8glfgwc38yc430427yd05z1wc5cnld8zgicmgi";
-          };
-        });
-      };
+      gitlint = pySelf.callPackage ./gitlint.nix { };
       junit2html = pySelf.callPackage ./junit2html.nix { };
       pykwalify = pySelf.callPackage ./pykwalify.nix { };
       pyocd = pySelf.callPackage ./pyocd.nix { };

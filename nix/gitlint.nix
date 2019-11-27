@@ -2,13 +2,15 @@
 
 buildPythonPackage rec {
   pname = "gitlint";
-  version = "0.11.0";
+  version = "0.12.0";
   
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0n25ddmgc9d3wfdjm8nsy2xdzm9cf39x75syk3qp1wv543i65a2r";
+    sha256 = "131pmggb5bsqmxd7rk3xg6nsi6vcmkba28vpmfcw0gkdakn0w15q";
   };
   
+  # Exact versions of dependencies are pinned
+  pipInstallFlags = [ "--no-deps" ];
   doCheck = false;
   
   propagatedBuildInputs = [ click arrow sh ];
