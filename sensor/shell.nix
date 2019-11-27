@@ -2,22 +2,16 @@ let
   pkgs = import <nixpkgs> { overlays = [ (import ../nix) ]; };
 in
 
-with pkgs.pkgsCross.arm-embedded.buildPackages;
+with pkgs;
 with python3Packages;
 
-let
-  toolchain = buildEnv {
-    name = "arm-toolchain";
-    paths = [ gcc binutils ];
-  };
-in mkShell {
+mkShell {
   name = "water-level-monitor-env";
   disableHardening = [ "all" ];
   nativeBuildInputs = [
     which
     git
-    # gcc
-    # binutils
+    gcc-arm-embedded
     cmake
     ninja
     dtc
@@ -32,7 +26,7 @@ in mkShell {
     gdb
   ];
 
-  # Have to use Arch's GCC for now because Nix's causes crashes
-  GNUARMEMB_TOOLCHAIN_PATH = "/usr"; #toolchain;
+  # NOTE: I have not tested this yet
+  GNUARMEMB_TOOLCHAIN_PATH = gcc-arm-embedded;
 }
 
