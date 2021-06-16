@@ -1,5 +1,5 @@
 let
-  pkgs = import <nixpkgs> { overlays = [ (import ../nix) ]; };
+  pkgs = import <nixpkgs> { };
 in
 
 with pkgs;
@@ -26,7 +26,6 @@ mkShell {
     gdb
   ];
 
-  # NOTE: I have not tested this yet
   GNUARMEMB_TOOLCHAIN_PATH = gcc-arm-embedded;
 }
 
