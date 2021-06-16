@@ -2,9 +2,9 @@
     rangefinder: rangefinder {
         status = "ok";
         compatible = "jsn,sr04t";
-        trig-gpios = <&gpio0 3 GPIO_DIR_OUT>;
-        echo-gpios = <&gpio0 4 (GPIO_DIR_IN | GPIO_INT | GPIO_INT_EDGE | GPIO_INT_DOUBLE_EDGE)>;
-        en-gpios = <&gpio0 1 GPIO_DIR_OUT>;
+        trig-gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
+        echo-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
+        en-gpios = <&gpio0 1 GPIO_ACTIVE_HIGH>;
         label = "RANGEFINDER";
     };
 
@@ -13,10 +13,6 @@
         compatible = "nordic,adc-supply";
         label = "supply-voltage";
     };
-
-    chosen {
-        zephyr,code-partition = &slot0_partition;
-    };
 };
 
 &adc {
@@ -24,34 +20,23 @@
 };
 
 &flash0 {
-	/*
-	 * For more information, see:
-	 * https://docs.zephyrproject.org/latest/guides/dts/index.html#flash-partitions
-	 */
-	partitions {
-		compatible = "fixed-partitions";
-		#address-cells = <1>;
-		#size-cells = <1>;
+    /*
+     * For more information, see:
+     * https://docs.zephyrproject.org/latest/guides/dts/index.html#flash-partitions
+     */
+    partitions {
+        compatible = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells = <1>;
 
-		boot_partition: partition@0 {
-			label = "mcuboot";
-			reg = <0x00000000 0x7000>;
-		};
-		slot0_partition: partition@7000 {
-			label = "image-0";
-			reg = <0x00007000 0x1b000>;
-		};
-		slot1_partition: partition@27000 {
-			label = "image-1";
-			reg = <0x00022000 0x1b000>;
-		};
-		scratch_partition: partition@3d000 {
-			label = "image-scratch";
-			reg = <0x0003d000 0x2000>;
-		};
-		storage_partition: partition@3f000 {
-			label = "storage";
-			reg = <0x0003f000 0x00001000>;
-		};
-	};
+        code_partition: partition@0 {
+            label = "image-0";
+            reg = <0x00000000 0x3f000>;
+        };
+        storage_partition: partition@3f000 {
+            label = "storage";
+            reg = <0x0003f000 0x01000>;
+        };
+    };
 };
+

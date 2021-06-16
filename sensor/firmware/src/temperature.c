@@ -8,10 +8,10 @@
 
 LOG_MODULE_REGISTER(temperature);
 
-static struct device* sensor;
+static const struct device* sensor;
 
 int temperature_init(void) {
-    sensor = device_get_binding(CONFIG_TEMP_NRF5_NAME);
+    sensor = device_get_binding(DT_LABEL(DT_NODELABEL(temp)));
     if (!sensor) return -ENODEV;
 
     return 0;
@@ -27,11 +27,11 @@ int temperature_update(void) {
     RET_ERR(sensor_channel_get(sensor, SENSOR_CHAN_DIE_TEMP, &temp));
 
     // Temperature in millicelsius
-    s32_t temp_mc = temp.val1 * 100 + temp.val2 / 10000;
+    int32_t temp_mc = temp.val1 * 100 + temp.val2 / 10000;
 
     temp_mc = MAX(INT16_MIN, MIN(INT16_MAX, temp_mc));
 
-    RET_ERR(bluetooth_set_temperature((s16_t) temp_mc));
+    RET_ERR(bluetooth_set_temperature((int16_t) temp_mc));
 
     return err;
 }

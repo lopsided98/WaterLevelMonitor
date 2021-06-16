@@ -10,10 +10,10 @@ LOG_MODULE_REGISTER(battery);
 #define BATTERY_FULL_MILLIVOLTS 3000
 #define BATTERY_EMPTY_MILLIVOLTS 1800
 
-static struct device* battery;
+static const struct device* battery;
 
 int battery_init(void) {
-    battery = device_get_binding(DT_NORDIC_ADC_SUPPLY_BATTERY_LABEL);
+    battery = device_get_binding(DT_LABEL(DT_NODELABEL(battery)));
     if (!battery) return -ENODEV;
 
     return 0;
@@ -27,9 +27,9 @@ int battery_update(void) {
     struct sensor_value voltage;
     RET_ERR(sensor_channel_get(battery, SENSOR_CHAN_VOLTAGE, &voltage));
 
-    u32_t millivolts = (u32_t) (voltage.val1 * 1000 + voltage.val2 / 1000);
+    uint32_t millivolts = (uint32_t) (voltage.val1 * 1000 + voltage.val2 / 1000);
 
-    u8_t level = (millivolts - BATTERY_EMPTY_MILLIVOLTS) * 100
+    uint8_t level = (millivolts - BATTERY_EMPTY_MILLIVOLTS) * 100
                  / (BATTERY_FULL_MILLIVOLTS - BATTERY_EMPTY_MILLIVOLTS);
 
     level = MIN(level, 100);

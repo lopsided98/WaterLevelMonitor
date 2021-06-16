@@ -15,9 +15,7 @@ else()
     list(APPEND CONF_FILE release.conf)
 endif()
 
-set(MCUBOOT_BASE $ENV{MCUBOOT_BASE})
-
-include($ENV{ZEPHYR_BASE}/cmake/app/boilerplate.cmake NO_POLICY_SCOPE)
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(SensorFirmware)
 
 add_subdirectory(src)

@@ -9,10 +9,10 @@
 
 LOG_MODULE_REGISTER(watchdog);
 
-static u8_t reset_reason = RESET_POWER;
+static uint8_t reset_reason = RESET_POWER;
 
 int watchdog_init(void) {
-    reset_reason = nrf_power_gpregret_get();
+    reset_reason = nrf_power_gpregret_get(NRF_POWER);
 
     if (reset_reason == RESET_BROWNOUT) {
         bluetooth_set_error(ERROR_BROWNOUT);
@@ -21,7 +21,7 @@ int watchdog_init(void) {
     // Set up the retained register
     // Any type of reset except brownout will set GPREGRET to a different
     // value. This allows us to detect brownouts.
-    nrf_power_gpregret_set(RESET_BROWNOUT);
+    nrf_power_gpregret_set(NRF_POWER, RESET_BROWNOUT);
 
     return 0;
 }
@@ -30,7 +30,7 @@ enum watchdog_reset_reason watchdog_get_reset_reason() {
     return reset_reason;
 }
 
-FUNC_NORETURN void z_SysFatalErrorHandler(unsigned int reason, const NANO_ESF* pEsf) {
+FUNC_NORETURN void z_SysFatalErrorHandler(unsigned int reason, const z_arch_esf_t* esf) {
     LOG_ERR("FATAL ERROR... Resetting");
     LOG_PANIC();
     // NRF5x implementation passes reason to GPREGRET

@@ -11,11 +11,11 @@ LOG_MODULE_REGISTER(water_level);
 #define NUM_WATER_SAMPLES 10
 #define MAX_WATER_SAMPLE_ATTEMPTS 20
 
-static struct device* rangefinder;
+static const struct device* rangefinder;
 
-static u16_t water_level = 0; // mm
-static u16_t water_distance = 0; // mm
-static u16_t tank_depth = 2000; // mm
+static uint16_t water_level = 0; // mm
+static uint16_t water_distance = 0; // mm
+static uint16_t tank_depth = 2000; // mm
 
 static int water_level_settings_set(const char* key, size_t len_rd, settings_read_cb read_cb, void* cb_arg) {
     int err = 0;
@@ -38,7 +38,7 @@ SETTINGS_STATIC_HANDLER_DEFINE(
 );
 
 int water_level_init(void) {
-    rangefinder = device_get_binding(DT_JSN_SR04T_RANGEFINDER_LABEL);
+    rangefinder = device_get_binding(DT_LABEL(DT_NODELABEL(rangefinder)));
     if (!rangefinder) return -ENODEV;
 
     return 0;
@@ -47,9 +47,9 @@ int water_level_init(void) {
 int water_level_update(void) {
     int err = 0;
 
-    device_set_power_state(rangefinder, DEVICE_PM_ACTIVE_STATE, NULL, NULL);
+    pm_device_state_set(rangefinder, PM_DEVICE_STATE_ACTIVE, NULL, NULL);
 
-    u32_t distance_mm_avg = 0;
+    uint32_t distance_mm_avg = 0;
 
     int samples = 0;
     for (int tries = 0; tries < MAX_WATER_SAMPLE_ATTEMPTS && samples < NUM_WATER_SAMPLES; ++tries) {
@@ -59,15 +59,15 @@ int water_level_update(void) {
             sensor_channel_get(rangefinder, SENSOR_CHAN_DISTANCE, &distance);
 
             ++samples;
-            u32_t distance_mm = (u32_t) (distance.val1 * 1000 + distance.val2 / 1000);
+            uint32_t distance_mm = (uint32_t) (distance.val1 * 1000 + distance.val2 / 1000);
             distance_mm_avg += distance_mm;
         } else {
             LOG_WRN("Failed to read rangefinder (err %d)", err);
         }
-        k_sleep(50);
+        k_sleep(K_MSEC(50));
     }
 
-    device_set_power_state(rangefinder, DEVICE_PM_OFF_STATE, NULL, NULL);
+    pm_device_state_set(rangefinder, PM_DEVICE_STATE_OFF, NULL, NULL);
 
     if (samples != NUM_WATER_SAMPLES) {
         LOG_ERR("Only measured %d water level samples", samples);
@@ -83,19 +83,19 @@ int water_level_update(void) {
     return 0;
 }
 
-u16_t water_level_get(void) {
+uint16_t water_level_get(void) {
     return water_level;
 }
 
-u16_t water_level_get_water_distance(void) {
+uint16_t water_level_get_water_distance(void) {
     return water_distance;
 }
 
-u16_t water_level_get_tank_depth(void) {
+uint16_t water_level_get_tank_depth(void) {
     return tank_depth;
 }
 
-void water_level_set_tank_depth(u16_t depth) {
+void water_level_set_tank_depth(uint16_t depth) {
     tank_depth = depth;
     settings_save_one("wl/td", &tank_depth, sizeof(tank_depth));
 }

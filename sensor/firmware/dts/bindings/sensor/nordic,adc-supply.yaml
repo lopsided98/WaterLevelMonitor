@@ -4,16 +4,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 ---
-title: NRFx supply voltage sensor
-version: 0.1
+description: |
+  NRFx supply voltage sensor
 
-description: >
-  Binding for the NRFx supply voltage sensor
-inherits:
-  !include base.yaml
-
-properties:
-  compatible:
-    constraint: "nordic,adc-supply"
+compatible: "nordic,adc-supply"
+  
+include: [base.yaml]
 
 ...

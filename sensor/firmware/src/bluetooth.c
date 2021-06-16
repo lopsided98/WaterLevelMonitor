@@ -2,9 +2,10 @@
 #include <bluetooth/conn.h>
 #include <bluetooth/uuid.h>
 #include <bluetooth/gatt.h>
+#include <bluetooth/hci.h>
 #include <logging/log.h>
 #include <settings/settings.h>
-#include <mgmt/smp_bt.h>
+#include <mgmt/mcumgr/smp_bt.h>
 #include "bluetooth.h"
 #include "common.h"
 #include "water_level.h"
@@ -23,53 +24,45 @@ LOG_MODULE_REGISTER(bluetooth);
     0xa1, 0xf8, 0x20, 0x0f, 0xa2, 0xc0, 0x4e, 0x72, \
     0x8e, 0x88, 0x61, 0x96, 0xcb, 0xdf, 0xef, 0x89
 
-static u8_t battery_level = 0;
-static s16_t temperature = 0;
+static uint8_t battery_level = 0;
+static int16_t temperature = 0;
 
 static atomic_t error = ATOMIC_INIT(0);
 
-static u8_t status_sd_data[] = {BT_UUID_SCS_VAL, 0x00, 0x00, 0x00, 0x00};
-static u32_t* status = (u32_t*) &status_sd_data[16];
-
-// FIXME: hack to allow dynamic advertising data
-struct bt_ad {
-    const struct bt_data* data;
-    size_t len;
-};
-
-int set_ad(u16_t hci_op, const struct bt_ad* ad, size_t ad_len);
+static uint8_t status_sd_data[] = {BT_UUID_SCS_VAL, 0x00, 0x00, 0x00, 0x00};
+static uint32_t* status = (uint32_t*) &status_sd_data[16];
 
 static void bluetooth_ready(int err);
 
 static ssize_t bluetooth_battery_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                      void* buf, u16_t len, u16_t offset);
+                                      void* buf, uint16_t len, uint16_t offset);
 
 static ssize_t bluetooth_temperature_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                          void* buf, u16_t len, u16_t offset);
+                                          void* buf, uint16_t len, uint16_t offset);
 
 static ssize_t bluetooth_water_level_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                          void* buf, u16_t len, u16_t offset);
+                                          void* buf, uint16_t len, uint16_t offset);
 
 static ssize_t bluetooth_water_distance_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                             void* buf, u16_t len, u16_t offset);
+                                             void* buf, uint16_t len, uint16_t offset);
 
 static ssize_t bluetooth_tank_depth_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                         void* buf, u16_t len, u16_t offset);
+                                         void* buf, uint16_t len, uint16_t offset);
 
 static ssize_t bluetooth_tank_depth_write(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                          const void* buf, u16_t len, u16_t offset, u8_t flags);
+                                          const void* buf, uint16_t len, uint16_t offset, uint8_t flags);
 
 static ssize_t bluetooth_error_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                    void* buf, u16_t len, u16_t offset);
+                                    void* buf, uint16_t len, uint16_t offset);
 
 static ssize_t bluetooth_error_write(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                     const void* buf, u16_t len, u16_t offset, u8_t flags);
+                                     const void* buf, uint16_t len, uint16_t offset, uint8_t flags);
 
 static ssize_t bluetooth_status_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                     void* buf, u16_t len, u16_t offset);
+                                     void* buf, uint16_t len, uint16_t offset);
 
 static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                      const void* buf, u16_t len, u16_t offset, u8_t flags);
+                                      const void* buf, uint16_t len, uint16_t offset, uint8_t flags);
 
 static const struct bt_data ad[] = {
         BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
@@ -170,7 +163,7 @@ BT_GATT_SERVICE_DEFINE(
                                bluetooth_status_read, bluetooth_status_write, NULL),
 );
 
-static void bluetooth_connected(struct bt_conn* conn, u8_t err) {
+static void bluetooth_connected(struct bt_conn* conn, uint8_t err) {
     char addr[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
@@ -209,11 +202,11 @@ static void bluetooth_pairing_complete(struct bt_conn* conn, bool bonded) {
     LOG_DBG("Paired with: %s\n", log_strdup(addr));
 }
 
-static void bluetooth_pairing_failed(struct bt_conn* conn) {
+static void bluetooth_pairing_failed(struct bt_conn *conn, enum bt_security_err reason) {
     char addr[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    LOG_WRN("Pairing failed with: %s", log_strdup(addr));
+    LOG_WRN("Pairing failed with %s with error: %d", log_strdup(addr), reason);
 }
 
 static struct bt_conn_auth_cb auth_callbacks = {
@@ -247,7 +240,8 @@ static void bluetooth_ready(int err) {
     IF_ERR(bt_le_adv_start(BT_LE_ADV_PARAM(
             BT_LE_ADV_OPT_CONNECTABLE,
             BT_GAP_ADV_SLOW_INT_MIN,
-            BT_GAP_ADV_SLOW_INT_MAX
+            BT_GAP_ADV_SLOW_INT_MAX,
+            NULL // undirected advertising
     ), ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd))) {
         LOG_ERR("Advertising failed to start (err %d)\n", err);
         return;
@@ -257,62 +251,62 @@ static void bluetooth_ready(int err) {
 }
 
 static ssize_t bluetooth_battery_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                      void* buf, u16_t len, u16_t offset) {
+                                      void* buf, uint16_t len, uint16_t offset) {
     return bt_gatt_attr_read(conn, attr, buf, len, offset, &battery_level, sizeof(battery_level));
 }
 
 static ssize_t bluetooth_temperature_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                          void* buf, u16_t len, u16_t offset) {
+                                          void* buf, uint16_t len, uint16_t offset) {
     return bt_gatt_attr_read(conn, attr, buf, len, offset, &temperature, sizeof(temperature));
 }
 
 static ssize_t bluetooth_water_level_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                          void* buf, u16_t len, u16_t offset) {
-    const u16_t water_level = water_level_get();
+                                          void* buf, uint16_t len, uint16_t offset) {
+    const uint16_t water_level = water_level_get();
     return bt_gatt_attr_read(conn, attr, buf, len, offset, &water_level, sizeof(water_level));
 }
 
 static ssize_t bluetooth_water_distance_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                             void* buf, u16_t len, u16_t offset) {
-    const u16_t water_distance = water_level_get_water_distance();
+                                             void* buf, uint16_t len, uint16_t offset) {
+    const uint16_t water_distance = water_level_get_water_distance();
     return bt_gatt_attr_read(conn, attr, buf, len, offset, &water_distance, sizeof(water_distance));
 }
 
 static ssize_t bluetooth_tank_depth_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                         void* buf, u16_t len, u16_t offset) {
-    const u16_t tank_depth = water_level_get_tank_depth();
+                                         void* buf, uint16_t len, uint16_t offset) {
+    const uint16_t tank_depth = water_level_get_tank_depth();
     return bt_gatt_attr_read(conn, attr, buf, len, offset, &tank_depth, sizeof(tank_depth));
 }
 
 static ssize_t bluetooth_tank_depth_write(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                          const void* buf, u16_t len, u16_t offset, u8_t flags) {
-    u16_t tank_depth = 0;
+                                          const void* buf, uint16_t len, uint16_t offset, uint8_t flags) {
+    uint16_t tank_depth = 0;
 
     if (offset + len > sizeof(tank_depth)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
 
-    memcpy(((u8_t*) &tank_depth) + offset, buf, len);
+    memcpy(((uint8_t*) &tank_depth) + offset, buf, len);
     water_level_set_tank_depth(tank_depth);
 
     return len;
 }
 
 static ssize_t bluetooth_error_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                    void* buf, u16_t len, u16_t offset) {
+                                    void* buf, uint16_t len, uint16_t offset) {
     return bt_gatt_attr_read(conn, attr, buf, len, offset, &error, sizeof(error));
 }
 
 static ssize_t bluetooth_error_write(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                     const void* buf, u16_t len, u16_t offset, u8_t flags) {
+                                     const void* buf, uint16_t len, uint16_t offset, uint8_t flags) {
     if (offset + len > sizeof(error)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
 
-    u32_t error_write = 0;
-    u32_t mask_write = 0;
-    memcpy(((u8_t*) &error_write) + offset, buf, len);
-    memset(((u8_t*) &mask_write) + offset, 0xff, len);
+    uint32_t error_write = 0;
+    uint32_t mask_write = 0;
+    memcpy(((uint8_t*) &error_write) + offset, buf, len);
+    memset(((uint8_t*) &mask_write) + offset, 0xff, len);
 
     // Don't let the user set error bits, only clear
     atomic_and(&error, ~mask_write | error_write);
@@ -320,28 +314,25 @@ static ssize_t bluetooth_error_write(struct bt_conn* conn, const struct bt_gatt_
     return len;
 }
 
-static int bluetooth_status_ad_update() {
-    // FIXME: this is not normally a public API
-    struct bt_data ad_data[] = {BT_DATA(BT_DATA_SVC_DATA128, status_sd_data, sizeof(status_sd_data))};
-    struct bt_ad ad_update = {ad_data, ARRAY_SIZE(ad_data)};
-    set_ad(BT_HCI_OP_LE_SET_ADV_DATA, &ad_update, 1);
+static void bluetooth_status_ad_update() {
+    bt_le_adv_update_data(ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
 }
 
 static ssize_t bluetooth_status_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                     void* buf, u16_t len, u16_t offset) {
+                                     void* buf, uint16_t len, uint16_t offset) {
     return bt_gatt_attr_read(conn, attr, buf, len, offset, status, sizeof(*status));
 }
 
 static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt_attr* attr,
-                                      const void* buf, u16_t len, u16_t offset, u8_t flags) {
+                                      const void* buf, uint16_t len, uint16_t offset, uint8_t flags) {
     if (offset + len > sizeof(*status)) {
         return BT_GATT_ERR(BT_ATT_ERR_INVALID_OFFSET);
     }
 
-    u32_t status_write = 0;
-    u32_t mask_write = 0;
-    memcpy(((u8_t*) &status_write) + offset, buf, len);
-    memset(((u8_t*) &mask_write) + offset, 0xff, len);
+    uint32_t status_write = 0;
+    uint32_t mask_write = 0;
+    memcpy(((uint8_t*) &status_write) + offset, buf, len);
+    memset(((uint8_t*) &mask_write) + offset, 0xff, len);
 
     // Only set bits specified by the write mask
     // FIXME: this is cheating because we don't use atomic operations. It
@@ -364,18 +355,15 @@ int bluetooth_init(void) {
 
     RET_ERR(bt_enable(bluetooth_ready));
 
-    // Setup mcumgr over BLE
-    RET_ERR(smp_bt_register());
-
     return 0;
 }
 
-int bluetooth_set_battery_level(u8_t level) {
+int bluetooth_set_battery_level(uint8_t level) {
     battery_level = level;
     return 0;
 }
 
-int bluetooth_set_temperature(s16_t temp) {
+int bluetooth_set_temperature(int16_t temp) {
     temperature = temp;
     return 0;
 }

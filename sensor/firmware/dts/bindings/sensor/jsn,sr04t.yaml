@@ -4,34 +4,27 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 ---
-title: JSN-SR04T Waterproof Ultrasonic Rangefinder
-version: 0.1
+description: |
+  JSN-SR04T waterproof ultrasonic rangefinder
 
-description: >
-  Binding for a JSN-SR04T waterproof ultrasonic rangefinder
-inherits:
-  !include base.yaml
+compatible: "jsn,sr04t"
+
+include: [base.yaml]
 
 properties:
-  compatible:
-    constraint: "jsn,sr04t"
-
   trig-gpios:
-    type: compound
-    category: required
-    description: Trigger pin
-    generation: define, use-prop-name
+      type: phandle-array
+      required: false
+      description: Trigger pin
 
   echo-gpios:
-    type: compound
-    category: required
-    description: Echo pin
-    generation: define, use-prop-name
+      type: phandle-array
+      required: false
+      description: Echo pin
 
   en-gpios:
-    type: compound
-    category: required
-    description: Regulator enable pin
-    generation: define, use-prop-name
+      type: phandle-array
+      required: false
+      description: Regulator enable pin
 
 ...

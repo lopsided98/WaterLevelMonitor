@@ -1,3 +1,5 @@
+#define DT_DRV_COMPAT nordic_adc_supply
+
 #include <logging/log.h>
 #include <drivers/gpio.h>
 #include <drivers/adc.h>
@@ -11,16 +13,16 @@ LOG_MODULE_REGISTER(nrfx_adc_supply);
 
 #define NRFX_ADC_VBG_VOLTAGE 1200
 
-int nrfx_adc_supply_sample_fetch(struct device* dev, enum sensor_channel chan) {
+int nrfx_adc_supply_sample_fetch(const struct device* dev, enum sensor_channel chan) {
     int err = 0;
 
-    struct nrfx_adc_supply_data* data = dev->driver_data;
+    struct nrfx_adc_supply_data* data = dev->data;
 
     if (chan != SENSOR_CHAN_ALL && chan != SENSOR_CHAN_VOLTAGE)
         return -ENOTSUP;
 
-    s16_t sample = 0;
-    const u8_t resolution = 10;
+    int16_t sample = 0;
+    const uint8_t resolution = 10;
 
     const struct adc_sequence sequence = {
             .channels    = BIT(0),
@@ -31,7 +33,7 @@ int nrfx_adc_supply_sample_fetch(struct device* dev, enum sensor_channel chan) {
 
     RET_ERR(adc_read(data->adc, &sequence));
 
-    u32_t millivolts = (((u32_t) sample) * NRFX_ADC_VBG_VOLTAGE * 3) >> resolution;
+    uint32_t millivolts = (((uint32_t) sample) * NRFX_ADC_VBG_VOLTAGE * 3) >> resolution;
 
     data->value.val1 = millivolts / 1000;
     data->value.val2 = (millivolts % 1000) * 1000;
@@ -39,10 +41,10 @@ int nrfx_adc_supply_sample_fetch(struct device* dev, enum sensor_channel chan) {
     return err;
 }
 
-static int nrfx_adc_supply_channel_get(struct device* dev,
+static int nrfx_adc_supply_channel_get(const struct device* dev,
                                       enum sensor_channel chan,
                                       struct sensor_value* val) {
-    struct nrfx_adc_supply_data* data = dev->driver_data;
+    struct nrfx_adc_supply_data* data = dev->data;
 
     if (chan != SENSOR_CHAN_VOLTAGE)
         return -ENOTSUP;
@@ -52,10 +54,10 @@ static int nrfx_adc_supply_channel_get(struct device* dev,
     return 0;
 }
 
-static int nrfx_adc_supply_init(struct device* dev) {
+static int nrfx_adc_supply_init(const struct device* dev) {
     int err = 0;
 
-    struct nrfx_adc_supply_data* data = dev->driver_data;
+    struct nrfx_adc_supply_data* data = dev->data;
 
     struct adc_channel_cfg adc_cfg = {
             // FIXME: should this be configurable?
@@ -65,9 +67,9 @@ static int nrfx_adc_supply_init(struct device* dev) {
             .input_positive = ADC_CONFIG_PSEL_Disabled
     };
 
-    data->adc = device_get_binding(DT_INST_0_NORDIC_NRF_ADC_LABEL);
+    data->adc = device_get_binding(DT_LABEL(DT_NODELABEL(adc)));
     if (!data->adc) {
-        LOG_ERR("Could not find ADC: %s", DT_INST_0_NORDIC_NRF_ADC_LABEL);
+        LOG_ERR("Could not find ADC");
         return -EINVAL;
     }
 
@@ -83,5 +85,5 @@ const struct sensor_driver_api nrfx_adc_supply_api = {
 
 static struct nrfx_adc_supply_data nrfx_adc_supply_data;
 
-DEVICE_AND_API_INIT(nrfx_adc_supply_dev, DT_INST_0_NORDIC_ADC_SUPPLY_LABEL, &nrfx_adc_supply_init,
+DEVICE_DT_INST_DEFINE(0, &nrfx_adc_supply_init, NULL,
                     &nrfx_adc_supply_data, NULL, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, &nrfx_adc_supply_api);

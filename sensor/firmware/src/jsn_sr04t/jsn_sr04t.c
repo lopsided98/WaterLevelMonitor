@@ -1,3 +1,5 @@
+#define DT_DRV_COMPAT jsn_sr04t
+
 #include <drivers/gpio.h>
 #include <logging/log.h>
 
@@ -7,8 +9,8 @@
 #define LOG_LEVEL CONFIG_SENSOR_LOG_LEVEL
 LOG_MODULE_REGISTER(jsn_sr04t);
 
-static void sr04t_echo_interrupt(struct device* port, struct gpio_callback* cb, u32_t pins) {
-    u32_t cycles = k_cycle_get_32();
+static void sr04t_echo_interrupt(const struct device* port, struct gpio_callback* cb, uint32_t pins) {
+    uint32_t cycles = k_cycle_get_32();
 
     struct sr04t_data* data = CONTAINER_OF(cb, struct sr04t_data, echo_cb);
 
@@ -27,26 +29,26 @@ static void sr04t_echo_interrupt(struct device* port, struct gpio_callback* cb, 
     }
 }
 
-int sr04t_sample_fetch(struct device* dev, enum sensor_channel chan) {
+int sr04t_sample_fetch(const struct device* dev, enum sensor_channel chan) {
     int err = 0;
 
-    const struct sr04t_config* config = dev->config->config_info;
-    struct sr04t_data* data = dev->driver_data;
+    const struct sr04t_config* config = dev->config;
+    struct sr04t_data* data = dev->data;
 
     if (chan != SENSOR_CHAN_ALL && chan != SENSOR_CHAN_DISTANCE)
         return -ENOTSUP;
 
     device_busy_set(dev);
 
-    IF_ERR(gpio_pin_write(data->trig_gpio, config->trig_gpio_pin, 1)) goto cleanup;
+    IF_ERR(gpio_pin_set(config->trig_gpio.port, config->trig_gpio.pin, 1)) goto cleanup;
     k_busy_wait(50);
-    IF_ERR(gpio_pin_write(data->trig_gpio, config->trig_gpio_pin, 0)) goto cleanup;
+    IF_ERR(gpio_pin_set(config->trig_gpio.port, config->trig_gpio.pin, 0)) goto cleanup;
 
     data->state = STATE_WAIT_ECHO_START;
 
     k_sem_reset(&data->echo_end_sem);
 
-    IF_ERR(gpio_pin_enable_callback(data->echo_gpio, config->echo_gpio_pin)) goto cleanup;
+    IF_ERR(gpio_pin_interrupt_configure(config->echo_gpio.port, config->echo_gpio.pin, GPIO_INT_EDGE_BOTH)) goto cleanup;
 
     // Wait for interrupt processing to finish
     // FIXME: causes BLE stack to crash under load
@@ -61,19 +63,19 @@ int sr04t_sample_fetch(struct device* dev, enum sensor_channel chan) {
 
     __ASSERT_NO_MSG(data->state == STATE_READY);
 
-    IF_ERR(gpio_pin_disable_callback(data->echo_gpio, config->echo_gpio_pin)) goto cleanup;
+    IF_ERR(gpio_pin_interrupt_configure(config->echo_gpio.port, config->echo_gpio.pin, GPIO_INT_DISABLE)) goto cleanup;
 
-    u32_t elapsed_cycles = data->echo_end_cycles - data->echo_start_cycles;
-    u32_t elapsed_ns = SYS_CLOCK_HW_CYCLES_TO_NS(elapsed_cycles);
+    uint32_t elapsed_cycles = data->echo_end_cycles - data->echo_start_cycles;
+    uint32_t elapsed_ns = k_cyc_to_ns_floor32(elapsed_cycles);
 
-    u16_t dist_mm = elapsed_ns / CONFIG_JSN_SR04T_NS_PER_MM;
+    uint16_t dist_mm = elapsed_ns / CONFIG_JSN_SR04T_NS_PER_MM;
 
     data->value.val1 = dist_mm / 1000;
     data->value.val2 = (dist_mm % 1000) * 1000;
 
     cleanup:
 
-    gpio_pin_disable_callback(data->echo_gpio, config->echo_gpio_pin);
+    gpio_pin_interrupt_configure(config->echo_gpio.port, config->echo_gpio.pin, GPIO_INT_DISABLE);
     data->state = STATE_READY;
 
     device_busy_clear(dev);
@@ -81,10 +83,10 @@ int sr04t_sample_fetch(struct device* dev, enum sensor_channel chan) {
     return err;
 }
 
-static int sr04t_channel_get(struct device* dev,
+static int sr04t_channel_get(const struct device* dev,
                              enum sensor_channel chan,
                              struct sensor_value* val) {
-    struct sr04t_data* data = dev->driver_data;
+    struct sr04t_data* data = dev->data;
 
     if (chan != SENSOR_CHAN_DISTANCE)
         return -ENOTSUP;
@@ -94,26 +96,26 @@ static int sr04t_channel_get(struct device* dev,
     return 0;
 }
 
-static int sr04t_pm_control(struct device* dev, u32_t cmd, void* context, device_pm_cb cb, void* arg) {
+static int sr04t_pm_control(const struct device* dev, uint32_t cmd, uint32_t *state, pm_device_cb cb, void* arg) {
     int err = 0;
 
-    const struct sr04t_config* config = dev->config->config_info;
-    struct sr04t_data* data = dev->driver_data;
+    const struct sr04t_config* config = dev->config;
+    struct sr04t_data* data = dev->data;
 
     switch (cmd) {
-        case DEVICE_PM_SET_POWER_STATE:
-            switch (*(u32_t*) context) {
-                case DEVICE_PM_ACTIVE_STATE:
+        case PM_DEVICE_STATE_SET:
+            switch (*state) {
+                case PM_DEVICE_STATE_ACTIVE:
                     if (data->state == STATE_OFF) {
-                        IF_ERR(gpio_pin_write(data->en_gpio, config->en_gpio_pin, 1)) goto cleanup;
+                        IF_ERR(gpio_pin_set(config->en_gpio.port, config->en_gpio.pin, 1)) goto cleanup;
                         // Wait for device to start
                         k_sleep(K_MSEC(100));
                         data->state = STATE_READY;
                     }
                     break;
-                case DEVICE_PM_OFF_STATE:
+                case PM_DEVICE_STATE_OFF:
                     if (data->state != STATE_OFF) {
-                        IF_ERR(gpio_pin_write(data->en_gpio, config->en_gpio_pin, 0)) goto cleanup;
+                        IF_ERR(gpio_pin_set(config->en_gpio.port, config->en_gpio.pin, 0)) goto cleanup;
                         data->state = STATE_OFF;
                     }
                     break;
@@ -122,9 +124,8 @@ static int sr04t_pm_control(struct device* dev, u32_t cmd, void* context, device
                     goto cleanup;
             }
             break;
-        case DEVICE_PM_GET_POWER_STATE:
-            *(u32_t*) context = data->state == STATE_OFF ?
-                                DEVICE_PM_OFF_STATE : DEVICE_PM_ACTIVE_STATE;
+        case PM_DEVICE_STATE_GET:
+            *state = data->state == STATE_OFF ? PM_DEVICE_STATE_OFF : PM_DEVICE_STATE_ACTIVE;
             break;
         default:
             err = -EINVAL;
@@ -133,72 +134,64 @@ static int sr04t_pm_control(struct device* dev, u32_t cmd, void* context, device
 
     cleanup:
     if (cb) {
-        cb(dev, err, context, arg);
+        cb(dev, err, state, arg);
     }
 
     return err;
 }
 
-static int sr04t_init(struct device* dev) {
+static int sr04t_init(const struct device *dev) {
     int err = 0;
 
-    const struct sr04t_config* config = dev->config->config_info;
-    struct sr04t_data* data = dev->driver_data;
+    const struct sr04t_config* config = dev->config;
+    struct sr04t_data* data = dev->data;
 
     data->state = STATE_OFF;
 
     k_sem_init(&data->echo_end_sem, 0, 1);
 
     // Trig
-    data->trig_gpio = device_get_binding(config->trig_gpio_name);
-    if (!data->trig_gpio) {
-        LOG_ERR("Could not find trigger GPIO device: %s", config->trig_gpio_name);
-        return -EINVAL;
+    if (!device_is_ready(config->trig_gpio.port)) {
+        LOG_ERR("Trigger GPIO device is not ready");
+        return -ENODEV;
     }
-    RET_ERR(gpio_pin_configure(data->trig_gpio, config->trig_gpio_pin, config->trig_gpio_flags));
-    RET_ERR(gpio_pin_write(data->trig_gpio, config->trig_gpio_pin, 0));
+    RET_ERR(gpio_pin_configure(config->trig_gpio.port, config->trig_gpio.pin, GPIO_OUTPUT_INACTIVE | config->trig_gpio.dt_flags));
 
     // Echo
-    data->echo_gpio = device_get_binding(config->echo_gpio_name);
-    if (!data->echo_gpio) {
-        LOG_ERR("Could not find echo GPIO device: %s", config->echo_gpio_name);
-        return -EINVAL;
+    if (!device_is_ready(config->echo_gpio.port)) {
+        LOG_ERR("Echo GPIO device is not ready");
+        return -ENODEV;
     }
-    RET_ERR(gpio_pin_configure(data->echo_gpio, config->echo_gpio_pin, config->echo_gpio_flags));
+    RET_ERR(gpio_pin_configure(config->echo_gpio.port, config->echo_gpio.pin, GPIO_INPUT | config->echo_gpio.dt_flags));
     gpio_init_callback(&data->echo_cb, sr04t_echo_interrupt,
-                       BIT(config->echo_gpio_pin));
-    RET_ERR(gpio_add_callback(data->echo_gpio, &data->echo_cb));
+                       BIT(config->echo_gpio.pin));
+    RET_ERR(gpio_add_callback(config->echo_gpio.port, &data->echo_cb));
 
     // Enable
-    data->en_gpio = device_get_binding(config->en_gpio_name);
-    if (!data->en_gpio) {
-        LOG_ERR("Could not find enable GPIO device: %s", config->en_gpio_name);
-        return -EINVAL;
+    if (!device_is_ready(config->en_gpio.port)) {
+        LOG_ERR("Enable GPIO device is not ready");
+        return -ENODEV;
     }
-    RET_ERR(gpio_pin_configure(data->en_gpio, config->en_gpio_pin, config->en_gpio_flags));
-    RET_ERR(gpio_pin_write(data->en_gpio, config->en_gpio_pin, 0));
+    RET_ERR(gpio_pin_configure(config->en_gpio.port, config->en_gpio.pin, GPIO_OUTPUT_INACTIVE | config->en_gpio.dt_flags));
 
     return 0;
 }
 
-const struct sensor_driver_api sr04t_api = {
+const struct sensor_driver_api sr04t_api = { 
         .sample_fetch = &sr04t_sample_fetch,
         .channel_get = &sr04t_channel_get,
 };
 
-static const struct sr04t_config sr04t_config = {
-        .trig_gpio_name = DT_INST_0_JSN_SR04T_TRIG_GPIOS_CONTROLLER,
-        .trig_gpio_pin = DT_INST_0_JSN_SR04T_TRIG_GPIOS_PIN,
-        .trig_gpio_flags = DT_INST_0_JSN_SR04T_TRIG_GPIOS_FLAGS,
-        .echo_gpio_name = DT_INST_0_JSN_SR04T_ECHO_GPIOS_CONTROLLER,
-        .echo_gpio_pin = DT_INST_0_JSN_SR04T_ECHO_GPIOS_PIN,
-        .echo_gpio_flags = DT_INST_0_JSN_SR04T_ECHO_GPIOS_FLAGS,
-        .en_gpio_name = DT_INST_0_JSN_SR04T_EN_GPIOS_CONTROLLER,
-        .en_gpio_pin = DT_INST_0_JSN_SR04T_EN_GPIOS_PIN,
-        .en_gpio_flags = DT_INST_0_JSN_SR04T_EN_GPIOS_FLAGS
-};
+#define SR04T_INST(inst) \
+    static struct sr04t_data sr04t_data_##inst; \
+    \
+    static const struct sr04t_config sr04t_config_##inst = { \
+            .trig_gpio = GPIO_DT_SPEC_INST_GET(inst, trig_gpios), \
+            .echo_gpio = GPIO_DT_SPEC_INST_GET(inst, echo_gpios), \
+            .en_gpio = GPIO_DT_SPEC_INST_GET(inst, en_gpios) \
+    }; \
+    \
+    DEVICE_DT_INST_DEFINE(inst, sr04t_init, sr04t_pm_control, &sr04t_data_##inst, \
+                          &sr04t_config_##inst, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, &sr04t_api);
 
-static struct sr04t_data sr04t_data;
-
-DEVICE_DEFINE(sr04t_dev, DT_INST_0_JSN_SR04T_LABEL, &sr04t_init, &sr04t_pm_control, &sr04t_data,
-              &sr04t_config, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, &sr04t_api);
+DT_INST_FOREACH_STATUS_OKAY(SR04T_INST)
