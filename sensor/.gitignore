@@ -1,3 +1,5 @@
 .west/
-mcuboot/
+bootloader/
+modules/
+tools/
 zephyr/
