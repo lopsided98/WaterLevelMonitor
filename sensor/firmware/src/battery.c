@@ -21,6 +21,7 @@ int battery_init(void) {
 
 int battery_update(void) {
     int err = 0;
+    if (!battery) return -ENODEV;
 
     RET_ERR(sensor_sample_fetch(battery));
 

@@ -1,4 +1,8 @@
 / {
+    chosen {
+        zephyr,code-partition = &code_partition;
+    };
+
     rangefinder: rangefinder {
         status = "ok";
         compatible = "jsn,sr04t";

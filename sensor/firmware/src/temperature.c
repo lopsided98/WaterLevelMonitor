@@ -19,6 +19,7 @@ int temperature_init(void) {
 
 int temperature_update(void) {
     int err = 0;
+    if (!sensor) return -ENODEV;
 
     RET_ERR(sensor_sample_fetch(sensor));
 

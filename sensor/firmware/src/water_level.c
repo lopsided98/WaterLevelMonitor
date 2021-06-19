@@ -46,6 +46,7 @@ int water_level_init(void) {
 
 int water_level_update(void) {
     int err = 0;
+    if (!rangefinder) return -ENODEV;
 
     pm_device_state_set(rangefinder, PM_DEVICE_STATE_ACTIVE, NULL, NULL);
 
