@@ -8,7 +8,7 @@
         compatible = "jsn,sr04t";
         trig-gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
         echo-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
-        en-gpios = <&gpio0 1 GPIO_ACTIVE_HIGH>;
+        supply-gpios = <&gpio0 1 GPIO_ACTIVE_HIGH>;
         label = "RANGEFINDER";
     };
 

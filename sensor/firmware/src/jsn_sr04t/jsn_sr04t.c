@@ -107,7 +107,7 @@ static int sr04t_pm_control(const struct device* dev, uint32_t cmd, uint32_t *st
             switch (*state) {
                 case PM_DEVICE_STATE_ACTIVE:
                     if (data->state == STATE_OFF) {
-                        IF_ERR(gpio_pin_set(config->en_gpio.port, config->en_gpio.pin, 1)) goto cleanup;
+                        IF_ERR(gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 1)) goto cleanup;
                         // Wait for device to start
                         k_sleep(K_MSEC(100));
                         data->state = STATE_READY;
@@ -115,7 +115,7 @@ static int sr04t_pm_control(const struct device* dev, uint32_t cmd, uint32_t *st
                     break;
                 case PM_DEVICE_STATE_OFF:
                     if (data->state != STATE_OFF) {
-                        IF_ERR(gpio_pin_set(config->en_gpio.port, config->en_gpio.pin, 0)) goto cleanup;
+                        IF_ERR(gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 0)) goto cleanup;
                         data->state = STATE_OFF;
                     }
                     break;
@@ -168,11 +168,11 @@ static int sr04t_init(const struct device *dev) {
     RET_ERR(gpio_add_callback(config->echo_gpio.port, &data->echo_cb));
 
     // Enable
-    if (!device_is_ready(config->en_gpio.port)) {
+    if (!device_is_ready(config->supply_gpio.port)) {
         LOG_ERR("Enable GPIO device is not ready");
         return -ENODEV;
     }
-    RET_ERR(gpio_pin_configure(config->en_gpio.port, config->en_gpio.pin, GPIO_OUTPUT_INACTIVE | config->en_gpio.dt_flags));
+    RET_ERR(gpio_pin_configure(config->supply_gpio.port, config->supply_gpio.pin, GPIO_OUTPUT_INACTIVE | config->supply_gpio.dt_flags));
 
     return 0;
 }
@@ -188,7 +188,7 @@ const struct sensor_driver_api sr04t_api = {
     static const struct sr04t_config sr04t_config_##inst = { \
             .trig_gpio = GPIO_DT_SPEC_INST_GET(inst, trig_gpios), \
             .echo_gpio = GPIO_DT_SPEC_INST_GET(inst, echo_gpios), \
-            .en_gpio = GPIO_DT_SPEC_INST_GET(inst, en_gpios) \
+            .supply_gpio = GPIO_DT_SPEC_INST_GET(inst, supply_gpios) \
     }; \
     \
     DEVICE_DT_INST_DEFINE(inst, sr04t_init, sr04t_pm_control, &sr04t_data_##inst, \

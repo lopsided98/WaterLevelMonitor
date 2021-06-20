@@ -14,7 +14,7 @@ enum sr04t_state {
 struct sr04t_config {
     const struct gpio_dt_spec trig_gpio;
     const struct gpio_dt_spec echo_gpio;
-    const struct gpio_dt_spec en_gpio;
+    const struct gpio_dt_spec supply_gpio;
 };
 
 struct sr04t_data {

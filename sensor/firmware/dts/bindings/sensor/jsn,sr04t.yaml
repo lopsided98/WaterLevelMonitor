@@ -9,7 +9,7 @@ description: |
 
 compatible: "jsn,sr04t"
 
-include: [base.yaml]
+include: [base.yaml, power.yaml]
 
 properties:
   trig-gpios:
@@ -21,10 +21,5 @@ properties:
       type: phandle-array
       required: false
       description: Echo pin
-
-  en-gpios:
-      type: phandle-array
-      required: false
-      description: Regulator enable pin
 
 ...
