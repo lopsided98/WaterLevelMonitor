@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 int water_level_init(void);
 
 int water_level_update(void);
