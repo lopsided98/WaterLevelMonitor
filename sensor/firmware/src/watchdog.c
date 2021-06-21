@@ -29,10 +29,10 @@ int watchdog_init(void) {
 
 enum watchdog_reset_reason watchdog_get_reset_reason() { return reset_reason; }
 
-FUNC_NORETURN void z_SysFatalErrorHandler(unsigned int reason, const z_arch_esf_t* esf) {
+FUNC_NORETURN void k_sys_fatal_error_handler(unsigned int reason, const z_arch_esf_t* esf) {
     LOG_ERR("FATAL ERROR... Resetting");
     LOG_PANIC();
-    // NRF5x implementation passes reason to GPREGRET
+    // NRF51 implementation passes reason to GPREGRET
     sys_reboot(RESET_PANIC);
     CODE_UNREACHABLE;
 }

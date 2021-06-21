@@ -1,4 +1,5 @@
 .west/
+.cache/
 bootloader/
 modules/
 tools/
