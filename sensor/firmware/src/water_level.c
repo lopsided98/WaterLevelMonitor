@@ -1,8 +1,10 @@
-#include <device.h>
-#include <logging/log.h>
-#include <drivers/sensor.h>
-#include <settings/settings.h>
 #include "water_level.h"
+
+#include <device.h>
+#include <drivers/sensor.h>
+#include <logging/log.h>
+#include <settings/settings.h>
+
 #include "bluetooth.h"
 #include "common.h"
 
@@ -13,11 +15,12 @@ LOG_MODULE_REGISTER(water_level);
 
 static const struct device* rangefinder;
 
-static uint16_t water_level = 0; // mm
-static uint16_t water_distance = 0; // mm
-static uint16_t tank_depth = 2000; // mm
+static uint16_t water_level = 0;     // mm
+static uint16_t water_distance = 0;  // mm
+static uint16_t tank_depth = 2000;   // mm
 
-static int water_level_settings_set(const char* key, size_t len_rd, settings_read_cb read_cb, void* cb_arg) {
+static int water_level_settings_set(const char* key, size_t len_rd, settings_read_cb read_cb,
+                                    void* cb_arg) {
     int err = 0;
     int len = settings_name_next(key, NULL);
     if (!strncmp(key, "td", len)) {
@@ -28,14 +31,8 @@ static int water_level_settings_set(const char* key, size_t len_rd, settings_rea
     return 0;
 }
 
-SETTINGS_STATIC_HANDLER_DEFINE(
-        water_level_settings,
-        "wl",
-        NULL,
-        water_level_settings_set,
-        NULL,
-        NULL
-);
+SETTINGS_STATIC_HANDLER_DEFINE(water_level_settings, "wl", NULL, water_level_settings_set, NULL,
+                               NULL);
 
 int water_level_init(void) {
     rangefinder = device_get_binding(DT_LABEL(DT_NODELABEL(rangefinder)));
@@ -60,7 +57,7 @@ int water_level_update(void) {
             sensor_channel_get(rangefinder, SENSOR_CHAN_DISTANCE, &distance);
 
             ++samples;
-            uint32_t distance_mm = (uint32_t) (distance.val1 * 1000 + distance.val2 / 1000);
+            uint32_t distance_mm = (uint32_t)(distance.val1 * 1000 + distance.val2 / 1000);
             distance_mm_avg += distance_mm;
         } else {
             LOG_WRN("Failed to read rangefinder (err %d)", err);
@@ -84,17 +81,11 @@ int water_level_update(void) {
     return 0;
 }
 
-uint16_t water_level_get(void) {
-    return water_level;
-}
+uint16_t water_level_get(void) { return water_level; }
 
-uint16_t water_level_get_water_distance(void) {
-    return water_distance;
-}
+uint16_t water_level_get_water_distance(void) { return water_distance; }
 
-uint16_t water_level_get_tank_depth(void) {
-    return tank_depth;
-}
+uint16_t water_level_get_tank_depth(void) { return tank_depth; }
 
 void water_level_set_tank_depth(uint16_t depth) {
     tank_depth = depth;

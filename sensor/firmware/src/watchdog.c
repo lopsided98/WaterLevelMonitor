@@ -1,10 +1,11 @@
-#include <zephyr.h>
+#include "watchdog.h"
+
+#include <hal/nrf_power.h>
 #include <logging/log.h>
 #include <logging/log_ctrl.h>
 #include <power/reboot.h>
-#include <hal/nrf_power.h>
+#include <zephyr.h>
 
-#include "watchdog.h"
 #include "bluetooth.h"
 
 LOG_MODULE_REGISTER(watchdog);
@@ -26,9 +27,7 @@ int watchdog_init(void) {
     return 0;
 }
 
-enum watchdog_reset_reason watchdog_get_reset_reason() {
-    return reset_reason;
-}
+enum watchdog_reset_reason watchdog_get_reset_reason() { return reset_reason; }
 
 FUNC_NORETURN void z_SysFatalErrorHandler(unsigned int reason, const z_arch_esf_t* esf) {
     LOG_ERR("FATAL ERROR... Resetting");

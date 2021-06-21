@@ -4,12 +4,7 @@
 #include <drivers/gpio.h>
 #include <drivers/sensor.h>
 
-enum sr04t_state {
-    STATE_OFF = 0,
-    STATE_READY,
-    STATE_WAIT_ECHO_START,
-    STATE_WAIT_ECHO_END
-};
+enum sr04t_state { STATE_OFF, STATE_READY, STATE_WAIT_ECHO_START, STATE_WAIT_ECHO_END };
 
 struct sr04t_config {
     const struct gpio_dt_spec trig_gpio;

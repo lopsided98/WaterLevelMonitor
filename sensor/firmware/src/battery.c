@@ -1,9 +1,11 @@
-#include <drivers/sensor.h>
-#include <drivers/adc.h>
-#include <logging/log.h>
 #include "battery.h"
-#include "common.h"
+
+#include <drivers/adc.h>
+#include <drivers/sensor.h>
+#include <logging/log.h>
+
 #include "bluetooth.h"
+#include "common.h"
 
 LOG_MODULE_REGISTER(battery);
 
@@ -28,10 +30,10 @@ int battery_update(void) {
     struct sensor_value voltage;
     RET_ERR(sensor_channel_get(battery, SENSOR_CHAN_VOLTAGE, &voltage));
 
-    uint32_t millivolts = (uint32_t) (voltage.val1 * 1000 + voltage.val2 / 1000);
+    uint32_t millivolts = (uint32_t)(voltage.val1 * 1000 + voltage.val2 / 1000);
 
-    uint8_t level = (millivolts - BATTERY_EMPTY_MILLIVOLTS) * 100
-                 / (BATTERY_FULL_MILLIVOLTS - BATTERY_EMPTY_MILLIVOLTS);
+    uint8_t level = (millivolts - BATTERY_EMPTY_MILLIVOLTS) * 100 /
+                    (BATTERY_FULL_MILLIVOLTS - BATTERY_EMPTY_MILLIVOLTS);
 
     level = MIN(level, 100);
 

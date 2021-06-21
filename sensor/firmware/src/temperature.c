@@ -1,10 +1,12 @@
+#include "temperature.h"
+
 #include <device.h>
 #include <drivers/sensor.h>
 #include <logging/log.h>
 #include <settings/settings.h>
-#include "temperature.h"
-#include "common.h"
+
 #include "bluetooth.h"
+#include "common.h"
 
 LOG_MODULE_REGISTER(temperature);
 
@@ -32,7 +34,7 @@ int temperature_update(void) {
 
     temp_mc = MAX(INT16_MIN, MIN(INT16_MAX, temp_mc));
 
-    RET_ERR(bluetooth_set_temperature((int16_t) temp_mc));
+    RET_ERR(bluetooth_set_temperature((int16_t)temp_mc));
 
     return err;
 }
