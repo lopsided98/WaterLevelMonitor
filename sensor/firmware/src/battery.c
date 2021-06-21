@@ -7,7 +7,7 @@
 
 LOG_MODULE_REGISTER(battery);
 
-#define BATTERY_FULL_MILLIVOLTS 3000
+#define BATTERY_FULL_MILLIVOLTS 3200
 #define BATTERY_EMPTY_MILLIVOLTS 1800
 
 static const struct device* battery;
