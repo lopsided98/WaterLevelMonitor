@@ -9,10 +9,13 @@
 
 LOG_MODULE_REGISTER(battery);
 
-#define BATTERY_FULL_MILLIVOLTS 3200
-#define BATTERY_EMPTY_MILLIVOLTS 1800
+static const uint16_t BATTERY_FULL_MILLIVOLTS = 3200;
+static const uint16_t BATTERY_EMPTY_MILLIVOLTS = 1800;
 
 static const struct device* battery;
+
+static uint8_t level = 0;   // %
+static uint16_t voltage = 0;  // mV
 
 int battery_init(void) {
     battery = device_get_binding(DT_LABEL(DT_NODELABEL(battery)));
@@ -27,19 +30,22 @@ int battery_update(void) {
 
     RET_ERR(sensor_sample_fetch(battery));
 
-    struct sensor_value voltage;
-    RET_ERR(sensor_channel_get(battery, SENSOR_CHAN_VOLTAGE, &voltage));
+    struct sensor_value voltage_value;
+    RET_ERR(sensor_channel_get(battery, SENSOR_CHAN_VOLTAGE, &voltage_value));
 
-    uint32_t millivolts = (uint32_t)(voltage.val1 * 1000 + voltage.val2 / 1000);
+    voltage = (uint16_t)(voltage_value.val1 * 1000 + voltage_value.val2 / 1000);
 
-    uint8_t level = (millivolts - BATTERY_EMPTY_MILLIVOLTS) * 100 /
-                    (BATTERY_FULL_MILLIVOLTS - BATTERY_EMPTY_MILLIVOLTS);
-
+    level = (voltage - BATTERY_EMPTY_MILLIVOLTS) * 100 /
+            (BATTERY_FULL_MILLIVOLTS - BATTERY_EMPTY_MILLIVOLTS);
     level = MIN(level, 100);
 
-    LOG_DBG("Battery state: %d%%, %d.%d V\n", level, voltage.val1, voltage.val2);
+    LOG_DBG("Battery state: %d%%, %d.%d V\n", level, voltage_value.val1, voltage_value.val2);
 
     bluetooth_set_battery_level(level);
 
     return 0;
+}
+
+uint16_t battery_get_voltage(void) {
+    return voltage;
 }

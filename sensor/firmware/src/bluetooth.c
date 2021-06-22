@@ -9,6 +9,7 @@
 #include <mgmt/mcumgr/smp_bt.h>
 #include <settings/settings.h>
 
+#include "battery.h"
 #include "common.h"
 #include "water_level.h"
 
@@ -65,6 +66,9 @@ static ssize_t bluetooth_status_read(struct bt_conn* conn, const struct bt_gatt_
 static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt_attr* attr,
                                       const void* buf, uint16_t len, uint16_t offset,
                                       uint8_t flags);
+
+static ssize_t bluetooth_battery_voltage_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
+                                              void* buf, uint16_t len, uint16_t offset);
 
 static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
@@ -124,6 +128,12 @@ static struct bt_uuid_128 bt_uuid_scs_error = BT_UUID_INIT_128(
 static struct bt_uuid_128 bt_uuid_scs_status = BT_UUID_INIT_128(
     0x5b, 0x32, 0xf5, 0x09, 0xf9, 0x61, 0x4b, 0x28, 0x95, 0xc1, 0xd4, 0xed, 0xae, 0x5d, 0xc1, 0x57);
 
+static struct bt_uuid_128 bt_uuid_scs_battery_voltage = BT_UUID_INIT_128(
+    0x21, 0xc1, 0x38, 0x8b, 0x44, 0x90, 0x40, 0x26, 0x83, 0x7c, 0x05, 0xad, 0x6b, 0x55, 0x08, 0xdd);
+
+static const struct bt_gatt_cpf scs_battery_voltage_cpf = {.format = BT_CPF_FORMAT_UINT16,
+                                                           .exponent = -3};
+
 BT_GATT_SERVICE_DEFINE(
     scs_service, BT_GATT_PRIMARY_SERVICE(&bt_uuid_scs),
     BT_GATT_CHARACTERISTIC(&bt_uuid_scs_error.uuid, BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
@@ -131,7 +141,10 @@ BT_GATT_SERVICE_DEFINE(
                            bluetooth_error_read, bluetooth_error_write, NULL),
     BT_GATT_CHARACTERISTIC(&bt_uuid_scs_status.uuid, BT_GATT_CHRC_READ | BT_GATT_CHRC_WRITE,
                            BT_GATT_PERM_READ_AUTHEN | BT_GATT_PERM_WRITE_AUTHEN,
-                           bluetooth_status_read, bluetooth_status_write, NULL), );
+                           bluetooth_status_read, bluetooth_status_write, NULL),
+    BT_GATT_CHARACTERISTIC(&bt_uuid_scs_battery_voltage.uuid, BT_GATT_CHRC_READ,
+                           BT_GATT_PERM_READ_AUTHEN, bluetooth_battery_voltage_read, NULL, NULL),
+    BT_GATT_CPF(&scs_battery_voltage_cpf), );
 
 static void bluetooth_connected(struct bt_conn* conn, uint8_t err) {
     char addr[BT_ADDR_LE_STR_LEN];
@@ -322,6 +335,12 @@ static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt
     bluetooth_status_ad_update();
 
     return len;
+}
+
+static ssize_t bluetooth_battery_voltage_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
+                                              void* buf, uint16_t len, uint16_t offset) {
+    const uint16_t voltage = battery_get_voltage();
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &voltage, sizeof(voltage));
 }
 
 int bluetooth_init(void) {
