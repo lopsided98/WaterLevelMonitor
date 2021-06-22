@@ -16,16 +16,6 @@ enum system_status {
 
 int bluetooth_init(void);
 
-int bluetooth_set_battery_level(uint8_t level);
-
-/**
- * Set the temperature characteristic value.
- *
- * @param temp temperature in milli-celsius
- * @return errno
- */
-int bluetooth_set_temperature(int16_t temp);
-
 /**
  * Set a latched error bit.
  *

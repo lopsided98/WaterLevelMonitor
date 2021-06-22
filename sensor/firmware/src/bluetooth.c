@@ -11,6 +11,7 @@
 
 #include "battery.h"
 #include "common.h"
+#include "temperature.h"
 #include "water_level.h"
 
 LOG_MODULE_REGISTER(bluetooth);
@@ -24,9 +25,6 @@ LOG_MODULE_REGISTER(bluetooth);
 // System Control Service (SCS)
 #define BT_UUID_SCS_VAL \
     0xa1, 0xf8, 0x20, 0x0f, 0xa2, 0xc0, 0x4e, 0x72, 0x8e, 0x88, 0x61, 0x96, 0xcb, 0xdf, 0xef, 0x89
-
-static uint8_t battery_level = 0;
-static int16_t temperature = 0;
 
 static atomic_t error = ATOMIC_INIT(0);
 
@@ -236,11 +234,13 @@ static void bluetooth_ready(int err) {
 
 static ssize_t bluetooth_battery_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
                                       void* buf, uint16_t len, uint16_t offset) {
-    return bt_gatt_attr_read(conn, attr, buf, len, offset, &battery_level, sizeof(battery_level));
+    const uint8_t level = battery_get_level();
+    return bt_gatt_attr_read(conn, attr, buf, len, offset, &level, sizeof(level));
 }
 
 static ssize_t bluetooth_temperature_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
                                           void* buf, uint16_t len, uint16_t offset) {
+    const int16_t temperature = temperature_get();
     return bt_gatt_attr_read(conn, attr, buf, len, offset, &temperature, sizeof(temperature));
 }
 
@@ -348,16 +348,6 @@ int bluetooth_init(void) {
 
     RET_ERR(bt_enable(bluetooth_ready));
 
-    return 0;
-}
-
-int bluetooth_set_battery_level(uint8_t level) {
-    battery_level = level;
-    return 0;
-}
-
-int bluetooth_set_temperature(int16_t temp) {
-    temperature = temp;
     return 0;
 }
 

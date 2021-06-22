@@ -41,9 +41,11 @@ int battery_update(void) {
 
     LOG_DBG("Battery state: %d%%, %d.%d V\n", level, voltage_value.val1, voltage_value.val2);
 
-    bluetooth_set_battery_level(level);
-
     return 0;
+}
+
+uint8_t battery_get_level(void) {
+    return level;
 }
 
 uint16_t battery_get_voltage(void) {
