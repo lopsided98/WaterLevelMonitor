@@ -249,13 +249,6 @@ static void bluetooth_ready(int err) {
 
     bt_conn_cb_register(&conn_callbacks);
     bt_conn_auth_cb_register(&auth_callbacks);
-
-    IF_ERR(bluetooth_advertising_start()) {
-        LOG_ERR("Advertising failed to start (err %d)\n", err);
-        return;
-    }
-
-    LOG_DBG("Advertising started\n");
 }
 
 static ssize_t bluetooth_battery_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
