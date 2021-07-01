@@ -1,17 +1,19 @@
 use std::fs::File;
 use std::io::Read;
-use std::time::SystemTime;
+use std::rc::Rc;
+use std::time::{Duration, SystemTime};
 
-use log::{error, info, warn};
+use failure::ResultExt;
 use serde::Deserialize;
 
 use crate::influxdb::{TimestampPrecision, Value};
-use failure::ResultExt;
+use crate::sensor::Sensor;
 
-mod bluez;
-mod sensor;
 mod influxdb;
-mod dbus;
+mod sensor;
+mod util;
+
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 
 fn default_new_data_timeout() -> u32 {
     16 * 60 * 1000
@@ -40,60 +42,105 @@ struct Config {
     new_data_timeout: u32,
 }
 
-fn collect_data(sensor: &mut sensor::Sensor, timeout_ms: u32, first: bool) -> Result<influxdb::Point, failure::Error> {
-    if !first {
-        if !sensor.wait_new_data(Some(timeout_ms))? {
-            warn!("Timed out waiting for new data, collecting anyway");
+fn wait_new_data(
+    sensor: &mut sensor::Sensor,
+    timeout: Duration,
+) -> Result<SystemTime, failure::Error> {
+    log::debug!("waiting for new data...");
+    if !sensor.wait_new_data(timeout)? {
+        log::warn!("timed out waiting for new data, collecting anyway");
+    }
+    // Get timestamp as close as possible to when the data was collected
+    let timestamp = SystemTime::now();
+    Ok(timestamp)
+}
+
+fn read_data(
+    sensor: &mut sensor::Sensor,
+    timestamp: SystemTime,
+) -> Result<influxdb::Point, failure::Error> {
+    log::debug!("connecting...");
+    match sensor.connect(Duration::from_secs(10)) {
+        Err(sensor::Error::BlueZ(blurst::Error::Bluez {
+            kind: blurst::ErrorKind::AlreadyConnected,
+            ..
+        })) => log::warn!("already connected to sensor"),
+        Err(e) => Err(e)?,
+        Ok(_) => (),
+    };
+
+    let mut point = influxdb::Point::new("water_tank".into());
+    point.set_timestamp(influxdb::Timestamp::new(
+        timestamp,
+        TimestampPrecision::Second,
+    ));
+
+    log::debug!("reading battery percentage...");
+    match sensor.battery_percentage() {
+        Ok(battery_percentage) => point.add_field(
+            "battery_percentage".into(),
+            Value::Integer(battery_percentage as i64),
+        ),
+        Err(e) => log::warn!("failed to read battery level: {}", e),
+    }
+
+    log::debug!("reading temperature...");
+    match sensor.temperature() {
+        Ok(temperature) => point.add_field("temperature".into(), Value::Float(temperature as f64)),
+        Err(e) => log::warn!("failed to read temperature: {}", e),
+    }
+
+    log::debug!("reading water level...");
+    match sensor.water_level() {
+        Ok(water_level) => point.add_field("water_level".into(), Value::Float(water_level as f64)),
+        Err(e) => log::warn!("failed to read water level: {}", e),
+    }
+
+    log::debug!("reading water distance...");
+    match sensor.water_distance() {
+        Ok(water_distance) => {
+            point.add_field("water_distance".into(), Value::Float(water_distance as f64))
+        }
+        Err(e) => log::warn!("failed to read water distance: {}", e),
+    }
+
+    log::debug!("reading tank depth...");
+    match sensor.tank_depth() {
+        Ok(tank_depth) => point.add_field("tank_depth".into(), Value::Float(tank_depth as f64)),
+        Err(e) => log::warn!("failed to read tank depth: {}", e),
+    }
+
+    log::debug!("clearing status...");
+    if let Err(e) = sensor.set_status(0) {
+        log::warn!("failed to clear new data status: {}", e);
+    } else {
+        log::debug!("waiting for status to clear...");
+        // Once we disconnect, the sensor will stop advertising until it collects new
+        // data. Therefore, we need to wait for the service data to update before
+        // disconnecting, so we aren't stuck with stale data that makes us think
+        // there is still new data to retrieve.
+        if !sensor.wait_new_data_cleared(Duration::from_secs(30))? {
+            log::warn!("timeout waiting for cleaned status");
         }
     }
 
-    let mut point = influxdb::Point::new("water_tank".into());
-    // Get timestamp as close as possible to when the data was collected
-    point.set_timestamp(influxdb::Timestamp::new(SystemTime::now(), TimestampPrecision::Second));
-
-    match sensor.connect() {
-        Err(sensor::Error::BlueZ(bluez::Error { kind: bluez::ErrorKind::AlreadyConnected, .. })) =>
-            warn!("Already connected to sensor"),
-        Err(e) => Err(e)?,
-        Ok(_) => ()
-    };
-
-    match sensor.battery_percentage() {
-        Ok(battery_percentage) =>
-            point.add_field("battery_percentage".into(), Value::Integer(battery_percentage as i64)),
-        Err(e) => warn!("Failed to read battery level: {}", e)
-    }
-    match sensor.temperature() {
-        Ok(temperature) =>
-            point.add_field("temperature".into(), Value::Float(temperature as f64)),
-        Err(e) => warn!("Failed to read temperature: {}", e)
-    }
-    match sensor.water_level() {
-        Ok(water_level) =>
-            point.add_field("water_level".into(), Value::Float(water_level as f64)),
-        Err(e) => warn!("Failed to read water level: {}", e)
-    }
-    match sensor.water_distance() {
-        Ok(water_distance) =>
-            point.add_field("water_distance".into(), Value::Float(water_distance as f64)),
-        Err(e) => warn!("Failed to read water distance: {}", e)
-    }
-    match sensor.tank_depth() {
-        Ok(tank_depth) =>
-            point.add_field("tank_depth".into(), Value::Float(tank_depth as f64)),
-        Err(e) => warn!("Failed to read tank depth: {}", e)
-    }
-
-    if let Err(e) = sensor.set_status(0) {
-        warn!("Failed to clear new data status: {}", e);
-    }
-
-    // FIXME: disconnecting is pretty important, so we should probably retry on certain errors
-    if let Err(e) = sensor.disconnect() {
-        error!("Failed to disconnect: {}", e);
-    }
-
     Ok(point)
+}
+
+fn cleanup(sensor: &mut sensor::Sensor) -> Result<(), failure::Error> {
+    log::debug!("disconnecting...");
+    sensor.disconnect()?;
+    Ok(())
+}
+
+fn collect_data(
+    sensor: &mut sensor::Sensor,
+    timeout: Duration,
+) -> Result<influxdb::Point, failure::Error> {
+    let timestamp = wait_new_data(sensor, timeout)?;
+    let result = read_data(sensor, timestamp);
+    cleanup(sensor)?;
+    result
 }
 
 pub fn main() -> Result<(), failure::Error> {
@@ -103,49 +150,56 @@ pub fn main() -> Result<(), failure::Error> {
         .version(clap::crate_version!())
         .author("Ben Wolsieffer <benwolsieffer@gmail.com>")
         .about("Base station software to communicate with the water level sensor")
-        .arg(clap::Arg::with_name("config")
-            .help("Config file")
-            .required(true)
-            .takes_value(true)
-            .value_name("CONFIG"))
+        .arg(
+            clap::Arg::with_name("config")
+                .help("Config file")
+                .required(true)
+                .takes_value(true)
+                .value_name("CONFIG"),
+        )
         .get_matches();
 
-    let config_file = File::open(matches
-        .value_of("config")
-        // Clap should guarantee that the argument exists
-        .unwrap())
-        .context("Could not open config file")?;
-    let config: Config = serde_yaml::from_reader(config_file)
-        .context("Could not parse config file")?;
+    let config_file = File::open(
+        matches
+            .value_of("config")
+            // Clap should guarantee that the argument exists
+            .unwrap(),
+    )
+    .context("could not open config file")?;
+    let config: Config =
+        serde_yaml::from_reader(config_file).context("could not parse config file")?;
 
     let mut influxdb_cert = Vec::new();
-    File::open(config.influxdb.certificate.file)?
-        .read_to_end(&mut influxdb_cert)?;
+    File::open(config.influxdb.certificate.file)?.read_to_end(&mut influxdb_cert)?;
 
     let influxdb = influxdb::Client::new(
         config.influxdb.url,
         config.influxdb.database,
-        reqwest::Identity::from_pkcs12_der(
-            &influxdb_cert,
-            &config.influxdb.certificate.password)?,
+        reqwest::Identity::from_pkcs12_der(&influxdb_cert, &config.influxdb.certificate.password)?,
     )?;
 
-    let mut mgr = sensor::SensorManager::new()?;
+    let bluez = Rc::new(blurst::Bluez::new(DEFAULT_TIMEOUT)?);
+    let adapter = bluez
+        .get_first_adapter(DEFAULT_TIMEOUT, DEFAULT_TIMEOUT)?
+        .ok_or_else(|| failure::err_msg("no Bluetooth adapter found"))?;
 
-    let mut sensor = mgr.get_sensor_by_address(&config.address, Some(10000))?;
-    info!("Using device: {} ({})", sensor.name()?, sensor.address()?);
+    let mut sensor = Sensor::find_by_address(&adapter, &config.address, DEFAULT_TIMEOUT)?;
+    log::info!("using device: {} ({})", sensor.name()?, sensor.address()?);
 
-    let adapter = sensor.adapter()?;
     adapter.start_discovery()?;
 
-    let mut first = true;
     loop {
-        match collect_data(&mut sensor, config.new_data_timeout, first) {
-            Ok(point) => if let Err(e) = influxdb.write_point(&point) {
-                error!("Failed to write data to InfluxDB: {}", e);
-            },
-            Err(e) => error!("Failed to collect data: {}", e)
+        match collect_data(
+            &mut sensor,
+            Duration::from_millis(config.new_data_timeout as u64),
+        ) {
+            Ok(point) => {
+                log::debug!("writing point: {}", point);
+                if let Err(e) = influxdb.write_point(&point) {
+                    log::error!("failed to write data to InfluxDB: {}", e);
+                }
+            }
+            Err(e) => log::error!("failed to collect data: {}", e),
         };
-        first = false;
     }
 }

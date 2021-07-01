@@ -5,15 +5,18 @@ authors = ["Ben Wolsieffer <benwolsieffer@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-dbus = "0.6"
-reqwest = "0"
-url = "1"
-url_serde = "0"
+backoff = "0.3.0"
+blurst = { path = "../../Fitbit/blurst" }
 byteorder = "1"
 clap = "2"
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.8"
-itertools = "0"
-failure = "0"
-log = "0"
 env_logger = "0"
+failure = "0"
+itertools = "0.10.1"
+log = "0.4.14"
+reqwest = { version = "0.11.4", features = ["native-tls", "blocking"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.8.17"
+thiserror = "1.0.25"
+url = "1"
+url_serde = "0.2.0"
+uuid = "0.8.2"
