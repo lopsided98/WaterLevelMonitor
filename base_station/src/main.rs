@@ -120,7 +120,7 @@ fn read_data(
         // disconnecting, so we aren't stuck with stale data that makes us think
         // there is still new data to retrieve.
         if !sensor.wait_new_data_cleared(Duration::from_secs(30))? {
-            log::warn!("timeout waiting for cleaned status");
+            log::warn!("timeout waiting for status to clear");
         }
     }
 
