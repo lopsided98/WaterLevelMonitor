@@ -5,6 +5,7 @@
 #include <bluetooth/gatt.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/uuid.h>
+#include <errno.h>
 #include <logging/log.h>
 #include <mgmt/mcumgr/smp_bt.h>
 #include <settings/settings.h>
@@ -144,6 +145,26 @@ BT_GATT_SERVICE_DEFINE(
                            BT_GATT_PERM_READ_AUTHEN, bluetooth_battery_voltage_read, NULL, NULL),
     BT_GATT_CPF(&scs_battery_voltage_cpf), );
 
+static void bluetooth_conn_count_callback(struct bt_conn* conn, void* data) { ++*((size_t*)data); }
+
+static size_t bluetooth_get_conn_count() {
+    size_t count = 0;
+    bt_conn_foreach(BT_CONN_TYPE_ALL, bluetooth_conn_count_callback, &count);
+    return count;
+}
+
+static int bluetooth_advertising_start() {
+    return bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONNECTABLE,
+                                           BT_GAP_ADV_SLOW_INT_MIN,
+                                           BT_GAP_ADV_SLOW_INT_MAX,
+                                           NULL  // undirected advertising
+                                           ),
+                           ad,
+                           ARRAY_SIZE(ad),
+                           sd,
+                           ARRAY_SIZE(sd));
+}
+
 static void bluetooth_connected(struct bt_conn* conn, uint8_t err) {
     char addr[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
@@ -161,9 +182,22 @@ static void bluetooth_connected(struct bt_conn* conn, uint8_t err) {
     //    }
 }
 
-static struct bt_conn_cb conn_callbacks = {
-    .connected = bluetooth_connected,
-};
+static void bluetooth_disconnected(struct bt_conn* conn, uint8_t reason) {
+    char addr[BT_ADDR_LE_STR_LEN];
+    bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+
+    LOG_DBG("Disconnected from: %s", log_strdup(addr));
+
+    // Stop advertising if no one else is connected and the data has been retrieved
+    // We check for a single connection because the connection that triggered this callback is still
+    // included in the list.
+    if (!(*status & STATUS_NEW_DATA) && bluetooth_get_conn_count() == 1) {
+        bt_le_adv_stop();
+    }
+}
+
+static struct bt_conn_cb conn_callbacks = {.connected = bluetooth_connected,
+                                           .disconnected = bluetooth_disconnected};
 
 static void bluetooth_passkey_display(struct bt_conn* conn, unsigned int passkey) {
     LOG_INF("passkey: %d\n", passkey);
@@ -216,15 +250,7 @@ static void bluetooth_ready(int err) {
     bt_conn_cb_register(&conn_callbacks);
     bt_conn_auth_cb_register(&auth_callbacks);
 
-    IF_ERR(bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONNECTABLE,
-                                           BT_GAP_ADV_SLOW_INT_MIN,
-                                           BT_GAP_ADV_SLOW_INT_MAX,
-                                           NULL  // undirected advertising
-                                           ),
-                           ad,
-                           ARRAY_SIZE(ad),
-                           sd,
-                           ARRAY_SIZE(sd))) {
+    IF_ERR(bluetooth_advertising_start()) {
         LOG_ERR("Advertising failed to start (err %d)\n", err);
         return;
     }
@@ -300,8 +326,24 @@ static ssize_t bluetooth_error_write(struct bt_conn* conn, const struct bt_gatt_
     return len;
 }
 
-static void bluetooth_status_ad_update() {
+static void bluetooth_status_update() {
+    // Update the advertising and service data
     bt_le_adv_update_data(ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+
+    if (*status & STATUS_NEW_DATA) {
+        // If there is new data, start advertising
+        int err = 0;
+        IF_ERR(bluetooth_advertising_start()) {
+            if (err == -EALREADY) {
+                LOG_DBG("Advertising already started\n");
+            } else {
+                LOG_ERR("Advertising failed to restart (err %d)\n", err);
+            }
+        }
+    } else if (bluetooth_get_conn_count() == 0) {
+        // If there is no longer new data and no one is connected, stop advertising
+        bt_le_adv_stop();
+    }
 }
 
 static ssize_t bluetooth_status_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,
@@ -327,12 +369,7 @@ static ssize_t bluetooth_status_write(struct bt_conn* conn, const struct bt_gatt
     //  cooperative thread.
     *status = (*status & ~mask_write) | status_write;
 
-    // Stop advertising if the client confirms that it has read the data
-    //    if (!(status & STATUS_NEW_DATA)) {
-    //        bt_le_adv_stop();
-    //    }
-
-    bluetooth_status_ad_update();
+    bluetooth_status_update();
 
     return len;
 }
@@ -353,7 +390,7 @@ int bluetooth_init(void) {
 
 void bluetooth_set_error(enum system_error e) { atomic_or(&error, e); }
 
-bool bluetooth_get_error(enum system_error e) { return error & e; }
+bool bluetooth_get_error(enum system_error e) { return atomic_get(&error) & e; }
 
 void bluetooth_set_status(enum system_status s, bool value) {
     if (value) {
@@ -362,5 +399,5 @@ void bluetooth_set_status(enum system_status s, bool value) {
         *status &= ~s;
     }
 
-    bluetooth_status_ad_update();
+    bluetooth_status_update();
 }
