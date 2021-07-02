@@ -8,7 +8,7 @@
 
   outputs = { self, nixpkgs, flake-utils, crate2nix }:
     with flake-utils.lib;
-    eachSystem allSystems (system: let
+    eachSystem defaultSystems (system: let
       crate2nixOverlay = final: prev: {
         crate2nix = import crate2nix { pkgs = final; };
       };
@@ -31,5 +31,7 @@
       overlay = final: prev: {
         water-level-base-station = final.callPackage ./base_station { };
       };
+
+      nixosModule = import ./base_station/module.nix;
     };
 }
