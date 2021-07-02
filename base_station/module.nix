@@ -78,7 +78,7 @@ in {
       settings = pkgs.writeText "water-level-settings.yaml" (builtins.toJSON {
         influxdb = {
           inherit (cfg.influxdb) url database;
-          certificate.file = secrets.getSecret cfg.influxdb.certificateFile;
+          certificate.file = cfg.influxdb.certificateFile;
         };
         inherit (cfg) address;
       });
