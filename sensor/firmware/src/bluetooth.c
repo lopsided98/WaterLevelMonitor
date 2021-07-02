@@ -73,11 +73,10 @@ static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
     BT_DATA(BT_DATA_SVC_DATA128, status_sd_data, sizeof(status_sd_data))};
 
-static const struct bt_data sd[] = {
-    BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
-    BT_DATA_BYTES(BT_DATA_UUID16_ALL, 0x0F, 0x18,  // Battery Service (0x180F)
-                  0x1A, 0x18                       // Environmental Sensing Service (0x181A)
-                  )};
+static const struct bt_data sd[] = {BT_DATA_BYTES(
+    BT_DATA_UUID16_ALL, BT_UUID_16_ENCODE(BT_UUID_BAS_VAL),  // Battery Service
+    BT_UUID_16_ENCODE(BT_UUID_ESS_VAL)  // Environmental Sensing Service
+    )};
 
 // Battery Service
 BT_GATT_SERVICE_DEFINE(bas_service, BT_GATT_PRIMARY_SERVICE(BT_UUID_BAS),
@@ -154,7 +153,7 @@ static size_t bluetooth_get_conn_count() {
 }
 
 static int bluetooth_advertising_start() {
-    return bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONNECTABLE,
+    return bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONNECTABLE | BT_LE_ADV_OPT_USE_NAME,
                                            BT_GAP_ADV_SLOW_INT_MIN,
                                            BT_GAP_ADV_SLOW_INT_MAX,
                                            NULL  // undirected advertising
