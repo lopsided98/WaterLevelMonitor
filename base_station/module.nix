@@ -88,10 +88,16 @@ in {
       serviceConfig = {
         User = "water-level";
         Group = "water-level";
+        Restart = "always";
+        RestartSec = 10;
         ExecStart = escapeShellArgs [
           "${water-level-base-station}/bin/water_level_base_station" 
           settings
         ];
+      };
+      unitConfig = {
+        StartLimitBurst = 3;
+        StartLimitIntervalSec = 60;
       };
     };
   };
