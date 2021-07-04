@@ -1,5 +1,4 @@
 use std::fs::File;
-use std::io::Read;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
@@ -60,7 +59,7 @@ fn read_data(
     timestamp: SystemTime,
 ) -> Result<influxdb::Point, failure::Error> {
     log::debug!("connecting...");
-    match sensor.connect(Duration::from_secs(10)) {
+    match sensor.connect(Duration::from_secs(20)) {
         Err(sensor::Error::BlueZ(blurst::Error::Bluez {
             kind: blurst::ErrorKind::AlreadyConnected,
             ..
@@ -169,14 +168,13 @@ pub fn main() -> Result<(), failure::Error> {
     let config: Config =
         serde_yaml::from_reader(config_file).context("could not parse config file")?;
 
-    let mut influxdb_cert = Vec::new();
-    File::open(config.influxdb.certificate.file)?.read_to_end(&mut influxdb_cert)?;
+    let influxdb_cert = isahc::config::ClientCertificate::pkcs12_file(
+        config.influxdb.certificate.file,
+        Some(config.influxdb.certificate.password),
+    );
 
-    let influxdb = influxdb::Client::new(
-        config.influxdb.url,
-        config.influxdb.database,
-        reqwest::Identity::from_pkcs12_der(&influxdb_cert, &config.influxdb.certificate.password)?,
-    )?;
+    let influxdb =
+        influxdb::Client::new(config.influxdb.url, config.influxdb.database, influxdb_cert)?;
 
     let bluez = Rc::new(blurst::Bluez::new(DEFAULT_TIMEOUT)?);
     let adapter = bluez

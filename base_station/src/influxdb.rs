@@ -2,23 +2,18 @@ use core::fmt::Write;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use failure::Fail;
+use isahc::prelude::Configurable;
 use itertools::Itertools;
+use thiserror::Error;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum Error {
-    #[fail(display = "HTTP client error: {}", 0)]
-    Network(#[fail(cause)] reqwest::Error),
-    #[fail(display = "URL error: {}", 0)]
+    #[error("HTTP client error: {0}")]
+    Network(#[from] isahc::Error),
+    #[error("URL error: {0}")]
     Url(url::ParseError),
-}
-
-impl From<reqwest::Error> for Error {
-    fn from(e: reqwest::Error) -> Self {
-        Error::Network(e)
-    }
 }
 
 pub enum Value {
@@ -151,18 +146,17 @@ impl Display for Point {
 pub struct Client {
     base_url: url::Url,
     database: String,
-    client: reqwest::blocking::Client,
+    client: isahc::HttpClient,
 }
 
 impl Client {
     pub fn new(
         base_url: url::Url,
         database: String,
-        identity: reqwest::Identity,
+        certificate: isahc::config::ClientCertificate,
     ) -> Result<Self, Error> {
-        let client = reqwest::blocking::ClientBuilder::new()
-            .identity(identity)
-            .timeout(Duration::from_secs(300))
+        let client = isahc::HttpClientBuilder::new()
+            .ssl_client_certificate(certificate)
             .build()?;
         Ok(Client {
             base_url,
@@ -178,12 +172,7 @@ impl Client {
             query.push_str(&format!("&precision={}", timestamp.precision));
         }
         url.set_query(Some(&query));
-        self.client.execute(
-            self.client
-                .post(url.as_str())
-                .body(point.to_string())
-                .build()?,
-        )?;
+        self.client.post(url.as_str(), point.to_string())?;
         Ok(())
     }
 }
