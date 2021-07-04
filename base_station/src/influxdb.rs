@@ -162,6 +162,7 @@ impl Client {
     ) -> Result<Self, Error> {
         let client = reqwest::blocking::ClientBuilder::new()
             .identity(identity)
+            .timeout(120)
             .build()?;
         Ok(Client {
             base_url,
