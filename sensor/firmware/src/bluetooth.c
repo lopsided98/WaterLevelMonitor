@@ -75,7 +75,7 @@ static const struct bt_data ad[] = {
 
 static const struct bt_data sd[] = {BT_DATA_BYTES(
     BT_DATA_UUID16_ALL, BT_UUID_16_ENCODE(BT_UUID_BAS_VAL),  // Battery Service
-    BT_UUID_16_ENCODE(BT_UUID_ESS_VAL)  // Environmental Sensing Service
+    BT_UUID_16_ENCODE(BT_UUID_ESS_VAL)                       // Environmental Sensing Service
     )};
 
 // Battery Service
@@ -144,7 +144,13 @@ BT_GATT_SERVICE_DEFINE(
                            BT_GATT_PERM_READ_AUTHEN, bluetooth_battery_voltage_read, NULL, NULL),
     BT_GATT_CPF(&scs_battery_voltage_cpf), );
 
-static void bluetooth_conn_count_callback(struct bt_conn* conn, void* data) { ++*((size_t*)data); }
+static void bluetooth_conn_count_callback(struct bt_conn* conn, void* data) {
+    struct bt_conn_info info;
+    bt_conn_get_info(conn, &info);
+    if (info.role == BT_CONN_ROLE_SLAVE) {
+        ++*((size_t*)data);
+    }
+}
 
 static size_t bluetooth_get_conn_count() {
     size_t count = 0;
@@ -190,8 +196,14 @@ static void bluetooth_disconnected(struct bt_conn* conn, uint8_t reason) {
     // Stop advertising if no one else is connected and the data has been retrieved
     // We check for a single connection because the connection that triggered this callback is still
     // included in the list.
-    if (!(*status & STATUS_NEW_DATA) && bluetooth_get_conn_count() == 1) {
-        bt_le_adv_stop();
+    if (!(*status & STATUS_NEW_DATA)) {
+        size_t conn_count = bluetooth_get_conn_count();
+        if (conn_count <= 1) {
+            bt_le_adv_stop();
+            LOG_DBG("Stopped advertising at disconnect");
+        } else {
+            LOG_DBG("%zu clients still connected, not stopping advertising", conn_count - 1);
+        }
     }
 }
 
@@ -335,6 +347,7 @@ static void bluetooth_status_update() {
     } else if (bluetooth_get_conn_count() == 0) {
         // If there is no longer new data and no one is connected, stop advertising
         bt_le_adv_stop();
+        LOG_DBG("Stopped advertising, no clients connected");
     }
 }
 
