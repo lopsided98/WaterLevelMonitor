@@ -2,7 +2,7 @@ use core::fmt::Write;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH, Duration};
 
 use failure::Fail;
 use itertools::Itertools;
@@ -162,7 +162,7 @@ impl Client {
     ) -> Result<Self, Error> {
         let client = reqwest::blocking::ClientBuilder::new()
             .identity(identity)
-            .timeout(120)
+            .timeout(Duration::from_secs(300))
             .build()?;
         Ok(Client {
             base_url,
