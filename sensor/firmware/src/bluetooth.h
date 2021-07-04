@@ -8,6 +8,7 @@ enum system_error {
     ERROR_BATTERY = BIT(1),
     ERROR_WATER_LEVEL = BIT(2),
     ERROR_BROWNOUT = BIT(3),
+    ERROR_CRASH = BIT(4),
 };
 
 enum system_status {

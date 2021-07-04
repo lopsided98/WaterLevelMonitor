@@ -10,29 +10,21 @@
 
 LOG_MODULE_REGISTER(watchdog);
 
-static uint8_t reset_reason = RESET_POWER;
-
 int watchdog_init(void) {
-    reset_reason = nrf_power_gpregret_get(NRF_POWER);
+    uint32_t reset_reason = nrf_power_resetreas_get(NRF_POWER);
+    nrf_power_resetreas_clear(NRF_POWER, 0xFFFFFFFF);
 
-    if (reset_reason == RESET_BROWNOUT) {
-        bluetooth_set_error(ERROR_BROWNOUT);
+    if (reset_reason & (NRF_POWER_RESETREAS_SREQ_MASK | NRF_POWER_RESETREAS_LOCKUP_MASK)) {
+        bluetooth_set_error(ERROR_CRASH);
     }
-
-    // Set up the retained register
-    // Any type of reset except brownout will set GPREGRET to a different
-    // value. This allows us to detect brownouts.
-    nrf_power_gpregret_set(NRF_POWER, RESET_BROWNOUT);
 
     return 0;
 }
-
-enum watchdog_reset_reason watchdog_get_reset_reason() { return reset_reason; }
 
 FUNC_NORETURN void k_sys_fatal_error_handler(unsigned int reason, const z_arch_esf_t* esf) {
     LOG_ERR("FATAL ERROR... Resetting");
     LOG_PANIC();
     // NRF51 implementation passes reason to GPREGRET
-    sys_reboot(RESET_PANIC);
+    sys_reboot(0);
     CODE_UNREACHABLE;
 }
