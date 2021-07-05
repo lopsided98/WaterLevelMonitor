@@ -159,6 +159,7 @@ static size_t bluetooth_get_conn_count() {
 }
 
 static int bluetooth_advertising_start() {
+    LOG_DBG("Starting advertising...");
     return bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONNECTABLE | BT_LE_ADV_OPT_USE_NAME,
                                            BT_GAP_ADV_SLOW_INT_MIN,
                                            BT_GAP_ADV_SLOW_INT_MAX,
