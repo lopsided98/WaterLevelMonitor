@@ -69,7 +69,7 @@ impl Sensor {
     const SCS_UUID: &'static str = "89efdfcb-9661-888e-724e-c0a20f20f8a1";
     const SCS_ERROR_UUID: &'static str = "c25f2f83-847b-c6bd-a74a-cbc37714f1e3";
     const SCS_STATUS_UUID: &'static str = "57c15dae-edd4-c195-284b-61f909f5325b";
-    const SCS_BATTERY_VOLTAGE_UUID: &'static str = "21c1388b-4490-4026-837c-05ad6b5508dd";
+    const SCS_BATTERY_VOLTAGE_UUID: &'static str = "dd08556b-ad05-7c83-2640-90448b38c121";
 
     fn new(device: blurst::Device) -> Result<Self, Error> {
         if device.paired()? {
