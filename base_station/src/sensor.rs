@@ -101,7 +101,7 @@ impl Sensor {
         let uuid = uuid.parse().unwrap();
         device
             .find_service_by_uuid(&uuid, Self::DBUS_TIMEOUT, timeout)?
-            .ok_or_else(|| Error::GattAttributeNotFound(uuid))
+            .ok_or(Error::GattAttributeNotFound(uuid))
     }
 
     fn find_characteristic(
@@ -112,7 +112,7 @@ impl Sensor {
         let uuid = uuid.parse().unwrap();
         service
             .find_characteristic_by_uuid(&uuid, Self::DBUS_TIMEOUT, timeout)?
-            .ok_or_else(|| Error::GattAttributeNotFound(uuid))
+            .ok_or(Error::GattAttributeNotFound(uuid))
     }
 
     fn find_gatt_attributes(&mut self, timeout: Duration) -> Result<(), Error> {
@@ -143,8 +143,8 @@ impl Sensor {
         self.gatt = Some(SensorGatt {
             bas_battery_level,
             ess_temperature,
-            wls_water_distance,
             wls_water_level,
+            wls_water_distance,
             wls_tank_depth,
             scs_error,
             scs_status,

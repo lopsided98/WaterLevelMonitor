@@ -64,8 +64,7 @@ fn read_data(
             kind: blurst::ErrorKind::AlreadyConnected,
             ..
         })) => log::warn!("already connected to sensor"),
-        Err(e) => Err(e)?,
-        Ok(_) => (),
+        r => r?,
     };
 
     let mut point = influxdb::Point::new("water_tank".into());
