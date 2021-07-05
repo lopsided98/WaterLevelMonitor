@@ -35,6 +35,7 @@ struct SensorGatt {
     wls_tank_depth: blurst::GattCharacteristic,
     scs_error: blurst::GattCharacteristic,
     scs_status: blurst::GattCharacteristic,
+    scs_battery_voltage: blurst::GattCharacteristic,
 }
 
 /// Object for communicating over Bluetooth Low Energy (BLE) with the water
@@ -68,6 +69,7 @@ impl Sensor {
     const SCS_UUID: &'static str = "89efdfcb-9661-888e-724e-c0a20f20f8a1";
     const SCS_ERROR_UUID: &'static str = "c25f2f83-847b-c6bd-a74a-cbc37714f1e3";
     const SCS_STATUS_UUID: &'static str = "57c15dae-edd4-c195-284b-61f909f5325b";
+    const SCS_BATTERY_VOLTAGE_UUID: &'static str = "21c1388b-4490-4026-837c-05ad6b5508dd";
 
     fn new(device: blurst::Device) -> Result<Self, Error> {
         if device.paired()? {
@@ -135,6 +137,8 @@ impl Sensor {
         let scs = Self::find_service(&self.device, Self::SCS_UUID, timeout.get())?;
         let scs_error = Self::find_characteristic(&scs, Self::SCS_ERROR_UUID, timeout.get())?;
         let scs_status = Self::find_characteristic(&scs, Self::SCS_STATUS_UUID, timeout.get())?;
+        let scs_battery_voltage =
+            Self::find_characteristic(&scs, Self::SCS_BATTERY_VOLTAGE_UUID, timeout.get())?;
 
         self.gatt = Some(SensorGatt {
             bas_battery_level,
@@ -144,6 +148,7 @@ impl Sensor {
             wls_tank_depth,
             scs_error,
             scs_status,
+            scs_battery_voltage,
         });
         Ok(())
     }
@@ -229,6 +234,13 @@ impl Sensor {
 
     pub fn battery_percentage(&self) -> Result<u8, Error> {
         self.read_attr(&self.gatt()?.bas_battery_level, |mut v| v.read_u8())
+    }
+
+    pub fn battery_voltage(&self) -> Result<f32, Error> {
+        self.read_attr(&self.gatt()?.scs_battery_voltage, |mut v| {
+            v.read_u16::<LittleEndian>()
+        })
+        .map(|l| l as f32 / 1000.0)
     }
 
     pub fn temperature(&self) -> Result<f32, Error> {

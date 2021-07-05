@@ -80,7 +80,16 @@ fn read_data(
             "battery_percentage".into(),
             Value::Integer(battery_percentage as i64),
         ),
-        Err(e) => log::warn!("failed to read battery level: {}", e),
+        Err(e) => log::warn!("failed to read battery percentage: {}", e),
+    }
+
+    log::debug!("reading battery voltage...");
+    match sensor.battery_voltage() {
+        Ok(battery_voltage) => point.add_field(
+            "battery_voltage".into(),
+            Value::Float(battery_voltage as f64),
+        ),
+        Err(e) => log::warn!("failed to read battery voltage: {}", e),
     }
 
     log::debug!("reading temperature...");
@@ -107,6 +116,12 @@ fn read_data(
     match sensor.tank_depth() {
         Ok(tank_depth) => point.add_field("tank_depth".into(), Value::Float(tank_depth as f64)),
         Err(e) => log::warn!("failed to read tank depth: {}", e),
+    }
+
+    log::debug!("reading errors...");
+    match sensor.errors() {
+        Ok(errors) => point.add_field("errors".into(), Value::Integer(errors as i64)),
+        Err(e) => log::warn!("failed to read errors: {}", e),
     }
 
     log::debug!("clearing status...");
