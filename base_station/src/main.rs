@@ -2,7 +2,7 @@ use std::fs::File;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
-use failure::ResultExt;
+use anyhow::Context;
 use serde::Deserialize;
 
 use crate::influxdb::{TimestampPrecision, Value};
@@ -41,10 +41,7 @@ struct Config {
     new_data_timeout: u32,
 }
 
-fn wait_new_data(
-    sensor: &mut sensor::Sensor,
-    timeout: Duration,
-) -> Result<SystemTime, failure::Error> {
+fn wait_new_data(sensor: &mut sensor::Sensor, timeout: Duration) -> anyhow::Result<SystemTime> {
     log::debug!("waiting for new data...");
     if !sensor.wait_new_data(timeout)? {
         log::warn!("timed out waiting for new data, collecting anyway");
@@ -57,7 +54,7 @@ fn wait_new_data(
 fn read_data(
     sensor: &mut sensor::Sensor,
     timestamp: SystemTime,
-) -> Result<influxdb::Point, failure::Error> {
+) -> anyhow::Result<influxdb::Point> {
     log::debug!("connecting...");
     match sensor.connect(Duration::from_secs(20)) {
         Err(sensor::Error::BlueZ(blurst::Error::Bluez {
@@ -140,23 +137,20 @@ fn read_data(
     Ok(point)
 }
 
-fn cleanup(sensor: &mut sensor::Sensor) -> Result<(), failure::Error> {
+fn cleanup(sensor: &mut sensor::Sensor) -> anyhow::Result<()> {
     log::debug!("disconnecting...");
     sensor.disconnect()?;
     Ok(())
 }
 
-fn collect_data(
-    sensor: &mut sensor::Sensor,
-    timeout: Duration,
-) -> Result<influxdb::Point, failure::Error> {
+fn collect_data(sensor: &mut sensor::Sensor, timeout: Duration) -> anyhow::Result<influxdb::Point> {
     let timestamp = wait_new_data(sensor, timeout)?;
     let result = read_data(sensor, timestamp);
     cleanup(sensor)?;
     result
 }
 
-pub fn main() -> Result<(), failure::Error> {
+pub fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let matches = clap::App::new("water_level_monitor")
@@ -192,8 +186,9 @@ pub fn main() -> Result<(), failure::Error> {
 
     let bluez = Rc::new(blurst::Bluez::new(DEFAULT_TIMEOUT)?);
     let adapter = bluez
-        .get_first_adapter(DEFAULT_TIMEOUT, DEFAULT_TIMEOUT)?
-        .ok_or_else(|| failure::err_msg("no Bluetooth adapter found"))?;
+        .get_first_adapter(DEFAULT_TIMEOUT, DEFAULT_TIMEOUT)
+        .context("failed to get Bluetooth adapter")?
+        .ok_or_else(|| anyhow::Error::msg("no Bluetooth adapter found"))?;
 
     let mut sensor = Sensor::find_by_address(&adapter, &config.address, DEFAULT_TIMEOUT)?;
     log::info!("using device: {} ({})", sensor.name()?, sensor.address()?);

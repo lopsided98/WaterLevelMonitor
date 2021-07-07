@@ -87,45 +87,6 @@ rec {
     #   inject test dependencies into the build
 
     crates = {
-      "addr2line" = rec {
-        crateName = "addr2line";
-        version = "0.15.2";
-        edition = "2015";
-        sha256 = "0fkz8sgwp9lbhzfch89wimn4qx16a8l62vfx07hrw85y3xxf98p7";
-        authors = [
-          "Nick Fitzgerald <fitzgen@gmail.com>"
-          "Philip Craig <philipjcraig@gmail.com>"
-          "Jon Gjengset <jon@thesquareplanet.com>"
-          "Noah Bergbauer <noah.bergbauer@tum.de>"
-        ];
-        dependencies = [
-          {
-            name = "gimli";
-            packageId = "gimli";
-            usesDefaultFeatures = false;
-            features = [ "read" ];
-          }
-        ];
-        features = {
-          "default" = [ "rustc-demangle" "cpp_demangle" "std-object" "fallible-iterator" "smallvec" ];
-          "rustc-dep-of-std" = [ "core" "alloc" "compiler_builtins" "gimli/rustc-dep-of-std" ];
-          "std" = [ "gimli/std" ];
-          "std-object" = [ "std" "object" "object/std" "object/compression" "gimli/endian-reader" ];
-        };
-      };
-      "adler" = rec {
-        crateName = "adler";
-        version = "1.0.2";
-        edition = "2015";
-        sha256 = "1zim79cvzd5yrkzl3nyfx0avijwgk9fqv3yrscdy1cc79ih02qpj";
-        authors = [
-          "Jonas Schievink <jonasschievink@gmail.com>"
-        ];
-        features = {
-          "default" = [ "std" ];
-          "rustc-dep-of-std" = [ "core" "compiler_builtins" ];
-        };
-      };
       "aho-corasick" = rec {
         crateName = "aho-corasick";
         version = "0.7.18";
@@ -167,6 +128,19 @@ rec {
           }
         ];
 
+      };
+      "anyhow" = rec {
+        crateName = "anyhow";
+        version = "1.0.41";
+        edition = "2018";
+        sha256 = "0qaa0vgsa7ybq7wqk57508l52l1lr3sbx49vk9hf43w9yql2dbqm";
+        authors = [
+          "David Tolnay <dtolnay@gmail.com>"
+        ];
+        features = {
+          "default" = [ "std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "async-channel" = rec {
         crateName = "async-channel";
@@ -230,59 +204,6 @@ rec {
           "Josh Stone <cuviper@gmail.com>"
         ];
 
-      };
-      "backtrace" = rec {
-        crateName = "backtrace";
-        version = "0.3.60";
-        edition = "2018";
-        sha256 = "10kjrb4b3kjx6g4mkmcwjg4dimmzpsn7iq3225wix0jd9sjmx0dp";
-        authors = [
-          "The Rust Project Developers"
-        ];
-        dependencies = [
-          {
-            name = "addr2line";
-            packageId = "addr2line";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "cfg-if";
-            packageId = "cfg-if";
-          }
-          {
-            name = "libc";
-            packageId = "libc";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "miniz_oxide";
-            packageId = "miniz_oxide";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "object";
-            packageId = "object";
-            usesDefaultFeatures = false;
-            features = [ "read_core" "elf" "macho" "pe" "unaligned" "archive" ];
-          }
-          {
-            name = "rustc-demangle";
-            packageId = "rustc-demangle";
-          }
-        ];
-        buildDependencies = [
-          {
-            name = "cc";
-            packageId = "cc";
-          }
-        ];
-        features = {
-          "default" = [ "std" ];
-          "serialize-rustc" = [ "rustc-serialize" ];
-          "serialize-serde" = [ "serde" ];
-          "verify-winapi" = [ "winapi/dbghelp" "winapi/handleapi" "winapi/libloaderapi" "winapi/memoryapi" "winapi/minwindef" "winapi/processthreadsapi" "winapi/synchapi" "winapi/tlhelp32" "winapi/winbase" "winapi/winnt" ];
-        };
-        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "bitflags" = rec {
         crateName = "bitflags";
@@ -731,63 +652,6 @@ rec {
         ];
 
       };
-      "failure" = rec {
-        crateName = "failure";
-        version = "0.1.8";
-        edition = "2015";
-        sha256 = "11jg1wmbkijrs6bk9fqnbrm9zf0850whnqpgnxyswbn0dk8rnbnk";
-        authors = [
-          "Without Boats <boats@mozilla.com>"
-        ];
-        dependencies = [
-          {
-            name = "backtrace";
-            packageId = "backtrace";
-            optional = true;
-          }
-          {
-            name = "failure_derive";
-            packageId = "failure_derive";
-            optional = true;
-          }
-        ];
-        features = {
-          "default" = [ "std" "derive" ];
-          "derive" = [ "failure_derive" ];
-          "std" = [ "backtrace" ];
-        };
-        resolvedDefaultFeatures = [ "backtrace" "default" "derive" "failure_derive" "std" ];
-      };
-      "failure_derive" = rec {
-        crateName = "failure_derive";
-        version = "0.1.8";
-        edition = "2015";
-        sha256 = "1936adqqk080439kx2bjf1bds7h89sg6wcif4jw0syndcv3s6kda";
-        procMacro = true;
-        authors = [
-          "Without Boats <woboats@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2";
-          }
-          {
-            name = "quote";
-            packageId = "quote";
-          }
-          {
-            name = "syn";
-            packageId = "syn";
-          }
-          {
-            name = "synstructure";
-            packageId = "synstructure";
-          }
-        ];
-        features = {
-        };
-      };
       "fastrand" = rec {
         crateName = "fastrand";
         version = "1.4.1";
@@ -947,24 +811,6 @@ rec {
           "std" = [ "alloc" "fastrand" "futures-io" "parking" "memchr" "waker-fn" ];
         };
         resolvedDefaultFeatures = [ "alloc" "default" "fastrand" "futures-io" "memchr" "parking" "std" "waker-fn" ];
-      };
-      "gimli" = rec {
-        crateName = "gimli";
-        version = "0.24.0";
-        edition = "2018";
-        sha256 = "12c1arfrzvw0lxy487wm66xb3vn7wy0r1v5hvn32fri6cqw7ah0f";
-        authors = [
-          "Nick Fitzgerald <fitzgen@gmail.com>"
-          "Philip Craig <philipjcraig@gmail.com>"
-        ];
-        features = {
-          "default" = [ "read" "write" "std" "fallible-iterator" "endian-reader" ];
-          "endian-reader" = [ "stable_deref_trait" ];
-          "rustc-dep-of-std" = [ "core" "alloc" "compiler_builtins" ];
-          "std" = [ "fallible-iterator/std" "stable_deref_trait/std" ];
-          "write" = [ "indexmap" ];
-        };
-        resolvedDefaultFeatures = [ "read" ];
       };
       "hermit-abi" = rec {
         crateName = "hermit-abi";
@@ -1397,62 +1243,6 @@ rec {
         ];
 
       };
-      "miniz_oxide" = rec {
-        crateName = "miniz_oxide";
-        version = "0.4.4";
-        edition = "2018";
-        sha256 = "0jsfv00hl5rmx1nijn59sr9jmjd4rjnjhh4kdjy8d187iklih9d9";
-        authors = [
-          "Frommi <daniil.liferenko@gmail.com>"
-          "oyvindln <oyvindln@users.noreply.github.com>"
-        ];
-        dependencies = [
-          {
-            name = "adler";
-            packageId = "adler";
-            usesDefaultFeatures = false;
-          }
-        ];
-        buildDependencies = [
-          {
-            name = "autocfg";
-            packageId = "autocfg";
-          }
-        ];
-        features = {
-          "rustc-dep-of-std" = [ "core" "alloc" "compiler_builtins" "adler/rustc-dep-of-std" ];
-        };
-      };
-      "object" = rec {
-        crateName = "object";
-        version = "0.25.3";
-        edition = "2018";
-        sha256 = "1irb91bk41kfd4bpr1ypda8hv1qn9js43zvl003b8mvsd7ijp3x3";
-        authors = [
-          "Nick Fitzgerald <fitzgen@gmail.com>"
-          "Philip Craig <philipjcraig@gmail.com>"
-        ];
-        dependencies = [
-          {
-            name = "memchr";
-            packageId = "memchr";
-            usesDefaultFeatures = false;
-          }
-        ];
-        features = {
-          "all" = [ "read" "write" "std" "compression" "default" ];
-          "compression" = [ "flate2" "std" ];
-          "default" = [ "read" "compression" ];
-          "pe" = [ "coff" ];
-          "read" = [ "read_core" "archive" "coff" "elf" "macho" "pe" "unaligned" ];
-          "rustc-dep-of-std" = [ "core" "compiler_builtins" "alloc" ];
-          "std" = [ "memchr/std" ];
-          "wasm" = [ "wasmparser" ];
-          "write" = [ "write_core" "coff" "elf" "macho" ];
-          "write_core" = [ "crc32fast" "indexmap" "std" ];
-        };
-        resolvedDefaultFeatures = [ "archive" "coff" "elf" "macho" "pe" "read_core" "unaligned" ];
-      };
       "once_cell" = rec {
         crateName = "once_cell";
         version = "1.8.0";
@@ -1749,18 +1539,6 @@ rec {
           "unicode" = [ "unicode-age" "unicode-bool" "unicode-case" "unicode-gencat" "unicode-perl" "unicode-script" "unicode-segment" ];
         };
       };
-      "rustc-demangle" = rec {
-        crateName = "rustc-demangle";
-        version = "0.1.20";
-        edition = "2015";
-        sha256 = "0jcdh4zanli1r4pcfj5ah1xcbxv87vh02syb9f0rqgp0nnq71bfy";
-        authors = [
-          "Alex Crichton <alex@alexcrichton.com>"
-        ];
-        features = {
-          "rustc-dep-of-std" = [ "core" "compiler_builtins" ];
-        };
-      };
       "schannel" = rec {
         crateName = "schannel";
         version = "0.1.19";
@@ -1971,42 +1749,6 @@ rec {
           "test" = [ "syn-test-suite/all-features" ];
         };
         resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "extra-traits" "full" "parsing" "printing" "proc-macro" "quote" "visit" "visit-mut" ];
-      };
-      "synstructure" = rec {
-        crateName = "synstructure";
-        version = "0.12.4";
-        edition = "2018";
-        sha256 = "00c72ij813xsilssgya6m6f73d0s5zzsld1y26bvhk3kdzbg4d5q";
-        authors = [
-          "Nika Layzell <nika@thelayzells.com>"
-        ];
-        dependencies = [
-          {
-            name = "proc-macro2";
-            packageId = "proc-macro2";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "quote";
-            packageId = "quote";
-            usesDefaultFeatures = false;
-          }
-          {
-            name = "syn";
-            packageId = "syn";
-            usesDefaultFeatures = false;
-            features = [ "derive" "parsing" "printing" "clone-impls" "visit" "extra-traits" ];
-          }
-          {
-            name = "unicode-xid";
-            packageId = "unicode-xid";
-          }
-        ];
-        features = {
-          "default" = [ "proc-macro" ];
-          "proc-macro" = [ "proc-macro2/proc-macro" "syn/proc-macro" "quote/proc-macro" ];
-        };
-        resolvedDefaultFeatures = [ "default" "proc-macro" ];
       };
       "termcolor" = rec {
         crateName = "termcolor";
@@ -2478,6 +2220,10 @@ rec {
         ];
         dependencies = [
           {
+            name = "anyhow";
+            packageId = "anyhow";
+          }
+          {
             name = "blurst";
             packageId = "blurst";
           }
@@ -2492,10 +2238,6 @@ rec {
           {
             name = "env_logger";
             packageId = "env_logger";
-          }
-          {
-            name = "failure";
-            packageId = "failure";
           }
           {
             name = "isahc";
