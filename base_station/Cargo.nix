@@ -706,7 +706,7 @@ rec {
           }
           {
             name = "percent-encoding";
-            packageId = "percent-encoding 2.1.0";
+            packageId = "percent-encoding";
           }
         ];
 
@@ -868,31 +868,7 @@ rec {
         ];
 
       };
-      "idna 0.1.5" = rec {
-        crateName = "idna";
-        version = "0.1.5";
-        edition = "2015";
-        sha256 = "0kl4gs5kaydn4v07c6ka33spm9qdh2np0x7iw7g5zd8z1c7rxw1q";
-        authors = [
-          "The rust-url developers"
-        ];
-        dependencies = [
-          {
-            name = "matches";
-            packageId = "matches";
-          }
-          {
-            name = "unicode-bidi";
-            packageId = "unicode-bidi";
-          }
-          {
-            name = "unicode-normalization";
-            packageId = "unicode-normalization";
-          }
-        ];
-
-      };
-      "idna 0.2.3" = rec {
+      "idna" = rec {
         crateName = "idna";
         version = "0.2.3";
         edition = "2018";
@@ -1015,7 +991,7 @@ rec {
           }
           {
             name = "url";
-            packageId = "url 2.2.2";
+            packageId = "url";
           }
           {
             name = "waker-fn";
@@ -1318,18 +1294,7 @@ rec {
         ];
 
       };
-      "percent-encoding 1.0.1" = rec {
-        crateName = "percent-encoding";
-        version = "1.0.1";
-        edition = "2015";
-        sha256 = "0cgq08v1fvr6bs5fvy390cz830lq4fak8havdasdacxcw790s09i";
-        libPath = "lib.rs";
-        authors = [
-          "The rust-url developers"
-        ];
-
-      };
-      "percent-encoding 2.1.0" = rec {
+      "percent-encoding" = rec {
         crateName = "percent-encoding";
         version = "2.1.0";
         edition = "2015";
@@ -1785,9 +1750,9 @@ rec {
       };
       "thiserror" = rec {
         crateName = "thiserror";
-        version = "1.0.25";
+        version = "1.0.26";
         edition = "2018";
-        sha256 = "1ip9j8riar3xffp261yls4phpasz768xhnafxdz4qlargx2pcvzs";
+        sha256 = "1qmz542pq4wmz3p0s4kavsqv09h0x99klkf3k33ydjy1x97rw4ck";
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
         ];
@@ -1801,9 +1766,9 @@ rec {
       };
       "thiserror-impl" = rec {
         crateName = "thiserror-impl";
-        version = "1.0.25";
+        version = "1.0.26";
         edition = "2018";
-        sha256 = "139i3bxidyncjd1sphkn4c577nkba8lzmphhr9gb26xz1y67cdla";
+        sha256 = "0ia72qiynlws5avb8f1xqlazp4g6bqgzjbwy5vs6nyg7myh6j386";
         procMacro = true;
         authors = [
           "David Tolnay <dtolnay@gmail.com>"
@@ -2053,34 +2018,7 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
-      "url 1.7.2" = rec {
-        crateName = "url";
-        version = "1.7.2";
-        edition = "2015";
-        sha256 = "0nim1c90mxpi9wgdw2xh8dqd72vlklwlzam436akcrhjac6pqknx";
-        authors = [
-          "The rust-url developers"
-        ];
-        dependencies = [
-          {
-            name = "idna";
-            packageId = "idna 0.1.5";
-          }
-          {
-            name = "matches";
-            packageId = "matches";
-          }
-          {
-            name = "percent-encoding";
-            packageId = "percent-encoding 1.0.1";
-          }
-        ];
-        features = {
-          "heap_size" = [ "heapsize" ];
-          "query_encoding" = [ "encoding" ];
-        };
-      };
-      "url 2.2.2" = rec {
+      "url" = rec {
         crateName = "url";
         version = "2.2.2";
         edition = "2018";
@@ -2095,7 +2033,7 @@ rec {
           }
           {
             name = "idna";
-            packageId = "idna 0.2.3";
+            packageId = "idna";
           }
           {
             name = "matches";
@@ -2103,30 +2041,17 @@ rec {
           }
           {
             name = "percent-encoding";
-            packageId = "percent-encoding 2.1.0";
+            packageId = "percent-encoding";
           }
-        ];
-
-      };
-      "url_serde" = rec {
-        crateName = "url_serde";
-        version = "0.2.0";
-        edition = "2015";
-        sha256 = "1snxgdzlcj5mpnbkpnzm533l6830qf9hrmmxshizhlpfy6cx1rvl";
-        authors = [
-          "The rust-url developers"
-        ];
-        dependencies = [
           {
             name = "serde";
             packageId = "serde";
-          }
-          {
-            name = "url";
-            packageId = "url 1.7.2";
+            optional = true;
+            features = [ "derive" ];
           }
         ];
 
+        resolvedDefaultFeatures = [ "serde" ];
       };
       "uuid" = rec {
         crateName = "uuid";
@@ -2266,11 +2191,8 @@ rec {
           }
           {
             name = "url";
-            packageId = "url 1.7.2";
-          }
-          {
-            name = "url_serde";
-            packageId = "url_serde";
+            packageId = "url";
+            features = [ "serde" ];
           }
           {
             name = "uuid";

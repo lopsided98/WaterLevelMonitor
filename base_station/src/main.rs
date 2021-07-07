@@ -27,7 +27,6 @@ struct CertificateConfig {
 
 #[derive(Deserialize, Debug)]
 struct InfluxDbConfig {
-    #[serde(with = "url_serde")]
     url: url::Url,
     database: String,
     certificate: CertificateConfig,
