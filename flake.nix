@@ -14,24 +14,25 @@
       };
       pkgs = import nixpkgs {
         inherit system;
-        overlays = [ self.overlay crate2nixOverlay ];
+        overlays = [ crate2nixOverlay ];
       };
-    in {
-      defaultPackage = pkgs.water-level-base-station;
+    in rec {
+      packages = {
+        base-station = pkgs.callPackage ./base_station { };
+        firmware = pkgs.callPackage ./sensor { };
+      };
+
+      defaultPackage = packages.base-station;
 
       defaultApp = mkApp {
-        drv = self.defaultPackage.${system};
+        drv = defaultPackage;
         exePath = "/bin/water_level_base_station";
       };
     }) //
-    eachSystem [ "x86_64-linux" "aarch64-linux" ] (system: {
-      hydraJobs.build = self.defaultPackage.${system};
+    eachSystem [ "x86_64-linux" ] (system: {
+      hydraJobs = self.packages.${system};
     }) //
     {
-      overlay = final: prev: {
-        water-level-base-station = final.callPackage ./base_station { };
-      };
-
       nixosModule = import ./base_station/module.nix;
     };
 }
