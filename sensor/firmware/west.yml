@@ -2,10 +2,16 @@ manifest:
   remotes:
     - name: zephyrproject-rtos
       url-base: https://github.com/zephyrproject-rtos
+    - name: lopsided98
+      url-base: https://github.com/lopsided98
   projects:
     - name: zephyr
-      remote: zephyrproject-rtos
+      remote: lopsided98
       revision: d0d6731089b2b10dd0e9c5b6bdc42e4ccf2050b8
+      import: true
+    - name: west-nix
+      remote: lopsided98
+      revision: 3bd2db86413da592a1bf7a5e1f7a25245ceedefe
       import: true
   self:
     path: firmware
