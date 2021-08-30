@@ -56,7 +56,14 @@ in {
       groups.water-level = {};
     };
 
-    hardware.bluetooth.enable = true;
+    hardware.bluetooth = {
+      enable = true;
+      package = pkgs.bluez.overrideAttrs ({ configureFlags ? [], ... }: {
+        configureFlags = configureFlags ++ [ "--enable-experimental" ];
+      });
+      # Enable advertisement monitor
+      settings.General.Experimental = true;
+    };
 
     services.dbus.packages = singleton (pkgs.writeTextFile {
       name = "dbus-water-level-bluetooth.conf";
