@@ -3,11 +3,11 @@
     "crate2nix": {
       "flake": false,
       "locked": {
-        "lastModified": 1639651038,
-        "narHash": "sha256-ptjG16zZGGZYLl/BCbVDDKb8GJXUKGuoEEgsT/jtWh4=",
+        "lastModified": 1640270000,
+        "narHash": "sha256-ObCY61R52AJ4oDGipjBnzu19cP0PIWetRPx1tbTzxNI=",
         "owner": "kolloch",
         "repo": "crate2nix",
-        "rev": "9651f0dfa5aec75833cf20690a56e751e010ea96",
+        "rev": "ed9c5c9045c32031e766f6b64f6996b77eeac4fa",
         "type": "github"
       },
       "original": {
@@ -33,11 +33,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1639876010,
-        "narHash": "sha256-naGsoUfsY92NaIGiFI8XFXBnesw8BQGe694xcfaLMDI=",
+        "lastModified": 1641230035,
+        "narHash": "sha256-hFyqihERaTbLxCOlugy/rpp22VLtLh8SPRnA2uu3F/8=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "395879c28386e1abf20c7ecacd45880759548391",
+        "rev": "78cd22c1b8604de423546cd49bfe264b786eca13",
         "type": "github"
       },
       "original": {
