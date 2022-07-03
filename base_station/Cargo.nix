@@ -208,8 +208,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/lopsided98/bluer";
-          rev = "fd3c79c73dac2722d71455fa243949805d652555";
-          sha256 = "1yg7d3rqhx3rdg0xkswg3h17lcmhgba3zs3jq0sd528s4xfzgvki";
+          rev = "2cdce7b8eb5b8c2de8da8e8ba61c584431aa305c";
+          sha256 = "07iqs6z1mpv1v2mkssf4mrwv6csd94cqhhwbg8xcrkwz3z9fdbbj";
         };
         authors = [
           "Sebastian Urban <surban@surban.net>"

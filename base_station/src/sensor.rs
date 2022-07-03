@@ -44,7 +44,8 @@ struct SensorGatt {
 pub struct Sensor {
     device: bluer::Device,
     gatt: Option<SensorGatt>,
-    new_data_rx: tokio::sync::watch::Receiver<bool>,
+    new_data_rx: tokio::sync::watch::Receiver<u64>,
+    new_data_count: u64,
 }
 
 impl Sensor {
@@ -76,7 +77,7 @@ impl Sensor {
             return Err(Error::SensorInvalid("not paired".into()));
         }
 
-        let (new_data_tx, new_data_rx) = tokio::sync::watch::channel(false);
+        let (new_data_tx, new_data_rx) = tokio::sync::watch::channel(0);
 
         let device_address = device.address();
         let mut monitor = adapter
@@ -95,17 +96,17 @@ impl Sensor {
             .await?;
 
         tokio::spawn(async move {
+            let mut new_data_count = 0;
             loop {
                 tokio::select! {
                     event = monitor.next() => {
                         match event {
                             Some(event) => {
-                                let (event_address, new_data) = match event {
-                                    bluer::adv_mon::AdvertisementMonitorEvent::DeviceFound(addr) => (addr, true),
-                                    bluer::adv_mon::AdvertisementMonitorEvent::DeviceLost(addr) => (addr, false)
-                                };
-                                if event_address == device_address {
-                                    new_data_tx.send(new_data).ok();
+                                if let bluer::adv_mon::AdvertisementMonitorEvent::DeviceFound(addr) = event {
+                                    if device_address == addr {
+                                        new_data_count += 1;
+                                        new_data_tx.send(new_data_count).ok();
+                                    }
                                 }
                             }
                             None => break
@@ -120,6 +121,7 @@ impl Sensor {
             device,
             gatt: None,
             new_data_rx,
+            new_data_count: 0,
         })
     }
 
@@ -223,19 +225,18 @@ impl Sensor {
     }
 
     pub async fn name(&self) -> Result<String, Error> {
-        self.device
-            .name()
-            .await?
-            .ok_or(Error::PropertyNotFound)
+        self.device.name().await?.ok_or(Error::PropertyNotFound)
     }
 
     pub fn address(&self) -> Address {
         self.device.address()
     }
 
-    pub async fn wait_status(&mut self, new_data: bool) -> Result<(), Error> {
+    pub async fn wait_new_data(&mut self) -> Result<(), Error> {
         while self.new_data_rx.changed().await.is_ok() {
-            if *self.new_data_rx.borrow() == new_data {
+            let rx_new_data_cound = *self.new_data_rx.borrow();
+            if rx_new_data_cound > self.new_data_count {
+                self.new_data_count = rx_new_data_cound;
                 return Ok(());
             }
         }

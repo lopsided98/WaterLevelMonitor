@@ -38,10 +38,9 @@ struct Config {
 
 async fn wait_new_data(sensor: &mut sensor::Sensor) -> anyhow::Result<SystemTime> {
     log::debug!("waiting for new data...");
-    sensor.wait_status(true).await?;
+    sensor.wait_new_data().await?;
     // Get timestamp as close as possible to when the data was collected
-    let timestamp = SystemTime::now();
-    Ok(timestamp)
+    Ok(SystemTime::now())
 }
 
 async fn read_data(
@@ -116,32 +115,26 @@ async fn read_data(
     log::debug!("clearing status...");
     if let Err(e) = sensor.set_status(0).await {
         log::warn!("failed to clear new data status: {}", e);
-    } else {
-        log::debug!("waiting for status to clear...");
-        // Once we disconnect, the sensor will stop advertising until it collects new
-        // data. Therefore, we need to wait for the service data to update before
-        // disconnecting, so we aren't stuck with stale data that makes us think
-        // there is still new data to retrieve.
-        sensor.wait_status(false).await?;
     }
 
-    Ok(point)
-}
-
-async fn cleanup(sensor: &mut sensor::Sensor) -> anyhow::Result<()> {
     log::debug!("disconnecting...");
     sensor.disconnect().await?;
-    Ok(())
+
+    Ok(point)
 }
 
 async fn collect_data(
     sensor: &mut sensor::Sensor,
     new_data_timeout: Duration,
 ) -> anyhow::Result<influxdb::Point> {
-    let timestamp = tokio::time::timeout(new_data_timeout, wait_new_data(sensor)).await??;
-    let result = read_data(sensor, timestamp).await;
-    cleanup(sensor).await?;
-    result
+    let timestamp = match tokio::time::timeout(new_data_timeout, wait_new_data(sensor)).await {
+        Ok(t) => t,
+        Err(_) => {
+            log::warn!("timed out waiting for new data");
+            Ok(SystemTime::now())
+        }
+    }?;
+    read_data(sensor, timestamp).await
 }
 
 #[tokio::main(flavor = "current_thread")]
