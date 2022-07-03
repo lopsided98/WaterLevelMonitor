@@ -113,7 +113,7 @@ async fn read_data(
     }
 
     log::debug!("clearing status...");
-    if let Err(e) = sensor.set_status(0).await {
+    if let Err(e) = sensor.clear_new_data().await {
         log::warn!("failed to clear new data status: {}", e);
     }
 

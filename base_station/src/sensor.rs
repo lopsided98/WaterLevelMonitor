@@ -259,8 +259,14 @@ impl Sensor {
         parser(Cursor::new(&value)).map_err(|_| Error::InvalidData(value))
     }
 
-    pub async fn set_status(&self, status: u32) -> Result<(), Error> {
-        self.gatt()?.scs_status.write(&status.to_le_bytes()).await?;
+    pub async fn clear_new_data(&mut self) -> Result<(), Error> {
+        self.gatt()?
+            .scs_status
+            .write(&[0x00, 0x00, 0x00, 0x00])
+            .await?;
+        // Ignore any spurious new data notifications that have come in since we
+        // connected
+        self.new_data_count = *self.new_data_rx.borrow();
         Ok(())
     }
 
