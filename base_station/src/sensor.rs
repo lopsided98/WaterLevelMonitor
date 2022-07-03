@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::io;
 use std::io::Cursor;
 
-use bluer::Address;
+use bluer::{Address, DeviceEvent, DeviceProperty};
 use byteorder::{LittleEndian, ReadBytesExt};
 use futures::StreamExt;
 use thiserror::Error;
@@ -10,8 +10,8 @@ use uuid::{uuid, Uuid};
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("sensor with address {address} not found")]
-    SensorNotFound { address: String },
+    #[error("sensor with address {0} not found")]
+    SensorNotFound(bluer::Address),
     #[error("sensor cannot be used: {0}")]
     SensorInvalid(Cow<'static, str>),
     #[error("GATT attribute '{0}' not found")]
@@ -22,8 +22,6 @@ pub enum Error {
     PropertyNotFound,
     #[error("invalid data received: {0:?}")]
     InvalidData(Vec<u8>),
-    #[error("advertisement monitor released")]
-    MonitorReleased,
     #[error("BlueZ error: {0}")]
     BlueZ(#[from] bluer::Error),
 }
@@ -88,7 +86,7 @@ impl Sensor {
                     ad_data_type: 0x21,
                     content_of_pattern: vec![
                         0xa1, 0xf8, 0x20, 0x0f, 0xa2, 0xc0, 0x4e, 0x72, 0x8e, 0x88, 0x61, 0x96,
-                        0xcb, 0xdf, 0xef, 0x89, 0x01, 0x00, 0x00, 0x00,
+                        0xcb, 0xdf, 0xef, 0x89,
                     ],
                 }]),
                 ..bluer::adv_mon::AdvertisementMonitor::default()
@@ -131,9 +129,7 @@ impl Sensor {
     ) -> Result<Sensor, Error> {
         Self::new(
             adapter,
-            adapter.device(address).map_err(|_| Error::SensorNotFound {
-                address: address.to_string(),
-            })?,
+            adapter.device(address).map_err(|_| Error::SensorNotFound(address))?,
         )
         .await
     }
@@ -232,15 +228,67 @@ impl Sensor {
         self.device.address()
     }
 
-    pub async fn wait_new_data(&mut self) -> Result<(), Error> {
-        while self.new_data_rx.changed().await.is_ok() {
-            let rx_new_data_cound = *self.new_data_rx.borrow();
-            if rx_new_data_cound > self.new_data_count {
-                self.new_data_count = rx_new_data_cound;
-                return Ok(());
+    async fn status(&self) -> Result<u32, Error> {
+        let service_data = self
+            .device
+            .service_data()
+            .await?
+            .ok_or(Error::PropertyNotFound)?;
+        let status_buf = service_data
+            .get(&Self::SCS_UUID)
+            .ok_or(Error::PropertyNotFound)?;
+        Cursor::new(&status_buf)
+            .read_u32::<LittleEndian>()
+            .map_err(|_| Error::InvalidData(status_buf.clone()))
+    }
+
+    pub async fn wait_status(&mut self, expected_status: u32) -> Result<(), Error> {
+        let mut events = self.device.events().await?;
+        while let Some(event) = events.next().await {
+            match event {
+                DeviceEvent::PropertyChanged(DeviceProperty::ServiceData(service_data)) => {
+                    let status_buf = if let Some(status_buf) = service_data.get(&Self::SCS_UUID) {
+                        status_buf
+                    } else {
+                        log::debug!("service data doesn't contain status");
+                        continue;
+                    };
+
+                    let status =
+                        if let Ok(status) = Cursor::new(&status_buf).read_u32::<LittleEndian>() {
+                            status
+                        } else {
+                            log::warn!("invalid status: {:?}", status_buf);
+                            continue;
+                        };
+
+                    if expected_status == status {
+                        return Ok(());
+                    }
+                }
+                _ => ()
             }
         }
-        Err(Error::MonitorReleased)
+        // while self.new_data_rx.changed().await.is_ok() {
+        //     let rx_new_data_count = *self.new_data_rx.borrow();
+        //     if rx_new_data_count <= self.new_data_count {
+        //         continue;
+        //     }
+        //     self.new_data_count = rx_new_data_count;
+        //     if self.status().await? != 1 {
+        //         continue;
+        //     }
+        //     return Ok(());
+        // }
+        Err(Error::SensorNotFound(self.device.address()))
+    }
+
+    pub async fn wait_new_data(&mut self)-> Result<(), Error> {
+        self.wait_status(1).await
+    }
+
+    pub async fn wait_new_data_cleared(&mut self)-> Result<(), Error> {
+        self.wait_status(0).await
     }
 
     fn gatt(&self) -> Result<&SensorGatt, Error> {

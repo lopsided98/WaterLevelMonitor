@@ -115,6 +115,9 @@ async fn read_data(
     log::debug!("clearing status...");
     if let Err(e) = sensor.clear_new_data().await {
         log::warn!("failed to clear new data status: {}", e);
+    } else {
+        log::debug!("waiting for new data flag to clear...");
+        sensor.wait_new_data_cleared().await?;
     }
 
     log::debug!("disconnecting...");
