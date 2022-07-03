@@ -1,5 +1,4 @@
 use std::fs::File;
-use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 use anyhow::Context;
@@ -10,11 +9,8 @@ use crate::sensor::Sensor;
 
 mod influxdb;
 mod sensor;
-mod util;
 
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
-
-fn default_new_data_timeout() -> u32 {
+const fn default_new_data_timeout() -> u32 {
     16 * 60 * 1000
 }
 
@@ -35,29 +31,27 @@ struct InfluxDbConfig {
 #[derive(Deserialize, Debug)]
 struct Config {
     influxdb: InfluxDbConfig,
-    address: String,
+    address: bluer::Address,
     #[serde(default = "default_new_data_timeout")]
     new_data_timeout: u32,
 }
 
-fn wait_new_data(sensor: &mut sensor::Sensor, timeout: Duration) -> anyhow::Result<SystemTime> {
+async fn wait_new_data(sensor: &mut sensor::Sensor) -> anyhow::Result<SystemTime> {
     log::debug!("waiting for new data...");
-    if !sensor.wait_new_data(timeout)? {
-        log::warn!("timed out waiting for new data, collecting anyway");
-    }
+    sensor.wait_status(true).await?;
     // Get timestamp as close as possible to when the data was collected
     let timestamp = SystemTime::now();
     Ok(timestamp)
 }
 
-fn read_data(
+async fn read_data(
     sensor: &mut sensor::Sensor,
     timestamp: SystemTime,
 ) -> anyhow::Result<influxdb::Point> {
     log::debug!("connecting...");
-    match sensor.connect(Duration::from_secs(20)) {
-        Err(sensor::Error::BlueZ(blurst::Error::Bluez {
-            kind: blurst::ErrorKind::AlreadyConnected,
+    match sensor.connect().await {
+        Err(sensor::Error::BlueZ(bluer::Error {
+            kind: bluer::ErrorKind::AlreadyConnected,
             ..
         })) => log::warn!("already connected to sensor"),
         r => r?,
@@ -70,7 +64,7 @@ fn read_data(
     ));
 
     log::debug!("reading battery percentage...");
-    match sensor.battery_percentage() {
+    match sensor.battery_percentage().await {
         Ok(battery_percentage) => point.add_field(
             "battery_percentage".into(),
             Value::Integer(battery_percentage as i64),
@@ -79,7 +73,7 @@ fn read_data(
     }
 
     log::debug!("reading battery voltage...");
-    match sensor.battery_voltage() {
+    match sensor.battery_voltage().await {
         Ok(battery_voltage) => point.add_field(
             "battery_voltage".into(),
             Value::Float(battery_voltage as f64),
@@ -88,19 +82,19 @@ fn read_data(
     }
 
     log::debug!("reading temperature...");
-    match sensor.temperature() {
+    match sensor.temperature().await {
         Ok(temperature) => point.add_field("temperature".into(), Value::Float(temperature as f64)),
         Err(e) => log::warn!("failed to read temperature: {}", e),
     }
 
     log::debug!("reading water level...");
-    match sensor.water_level() {
+    match sensor.water_level().await {
         Ok(water_level) => point.add_field("water_level".into(), Value::Float(water_level as f64)),
         Err(e) => log::warn!("failed to read water level: {}", e),
     }
 
     log::debug!("reading water distance...");
-    match sensor.water_distance() {
+    match sensor.water_distance().await {
         Ok(water_distance) => {
             point.add_field("water_distance".into(), Value::Float(water_distance as f64))
         }
@@ -108,19 +102,19 @@ fn read_data(
     }
 
     log::debug!("reading tank depth...");
-    match sensor.tank_depth() {
+    match sensor.tank_depth().await {
         Ok(tank_depth) => point.add_field("tank_depth".into(), Value::Float(tank_depth as f64)),
         Err(e) => log::warn!("failed to read tank depth: {}", e),
     }
 
     log::debug!("reading errors...");
-    match sensor.errors() {
+    match sensor.errors().await {
         Ok(errors) => point.add_field("errors".into(), Value::Integer(errors as i64)),
         Err(e) => log::warn!("failed to read errors: {}", e),
     }
 
     log::debug!("clearing status...");
-    if let Err(e) = sensor.set_status(0) {
+    if let Err(e) = sensor.set_status(0).await {
         log::warn!("failed to clear new data status: {}", e);
     } else {
         log::debug!("waiting for status to clear...");
@@ -128,28 +122,30 @@ fn read_data(
         // data. Therefore, we need to wait for the service data to update before
         // disconnecting, so we aren't stuck with stale data that makes us think
         // there is still new data to retrieve.
-        if !sensor.wait_new_data_cleared(Duration::from_secs(30))? {
-            log::warn!("timeout waiting for status to clear");
-        }
+        sensor.wait_status(false).await?;
     }
 
     Ok(point)
 }
 
-fn cleanup(sensor: &mut sensor::Sensor) -> anyhow::Result<()> {
+async fn cleanup(sensor: &mut sensor::Sensor) -> anyhow::Result<()> {
     log::debug!("disconnecting...");
-    sensor.disconnect()?;
+    sensor.disconnect().await?;
     Ok(())
 }
 
-fn collect_data(sensor: &mut sensor::Sensor, timeout: Duration) -> anyhow::Result<influxdb::Point> {
-    let timestamp = wait_new_data(sensor, timeout)?;
-    let result = read_data(sensor, timestamp);
-    cleanup(sensor)?;
+async fn collect_data(
+    sensor: &mut sensor::Sensor,
+    new_data_timeout: Duration,
+) -> anyhow::Result<influxdb::Point> {
+    let timestamp = tokio::time::timeout(new_data_timeout, wait_new_data(sensor)).await??;
+    let result = read_data(sensor, timestamp).await;
+    cleanup(sensor).await?;
     result
 }
 
-pub fn main() -> anyhow::Result<()> {
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let matches = clap::App::new("water_level_monitor")
@@ -183,22 +179,26 @@ pub fn main() -> anyhow::Result<()> {
     let influxdb =
         influxdb::Client::new(config.influxdb.url, config.influxdb.database, influxdb_cert)?;
 
-    let bluez = Rc::new(blurst::Bluez::new(DEFAULT_TIMEOUT)?);
-    let adapter = bluez
-        .get_first_adapter(DEFAULT_TIMEOUT, DEFAULT_TIMEOUT)
-        .context("failed to get Bluetooth adapter")?
-        .ok_or_else(|| anyhow::Error::msg("no Bluetooth adapter found"))?;
+    let session = bluer::Session::new().await?;
+    let adapter = session
+        .default_adapter()
+        .await
+        .context("failed to get Bluetooth adapter")?;
 
-    let mut sensor = Sensor::find_by_address(&adapter, &config.address, DEFAULT_TIMEOUT)?;
-    log::info!("using device: {} ({})", sensor.name()?, sensor.address()?);
-
-    adapter.start_discovery()?;
+    let mut sensor = Sensor::find_by_address(&adapter, config.address).await?;
+    log::info!(
+        "using device: {} ({})",
+        sensor.name().await?,
+        sensor.address()
+    );
 
     loop {
         match collect_data(
             &mut sensor,
             Duration::from_millis(config.new_data_timeout as u64),
-        ) {
+        )
+        .await
+        {
             Ok(point) => {
                 log::debug!("writing point: {}", point);
                 if let Err(e) = influxdb.write_point(&point) {

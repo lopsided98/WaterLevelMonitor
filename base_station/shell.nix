@@ -7,7 +7,8 @@ stdenv.mkDerivation {
     rustc
     cargo
     pkgconfig
-    rustfmt
+    # Stable mode is basically useless
+    (rustfmt.override { asNightly = true; })
     clippy
     crate2nix
   ];
