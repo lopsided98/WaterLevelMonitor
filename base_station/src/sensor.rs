@@ -81,6 +81,7 @@ impl Sensor {
         let mut monitor = adapter
             .register_advertisement_monitor(bluer::adv_mon::AdvertisementMonitor {
                 monitor_type: bluer::adv_mon::Type::OrPatterns,
+                rssi_sampling_period: Some(0),
                 patterns: Some(vec![bluer::adv_mon::Pattern {
                     start_position: 0,
                     ad_data_type: 0x21,
