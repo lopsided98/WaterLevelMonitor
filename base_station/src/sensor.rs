@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::io;
 use std::io::Cursor;
 
-use bluer::{Address, DeviceEvent, DeviceProperty};
+use bluer::Address;
 use byteorder::{LittleEndian, ReadBytesExt};
 use futures::StreamExt;
 use thiserror::Error;
@@ -42,8 +42,6 @@ struct SensorGatt {
 pub struct Sensor {
     device: bluer::Device,
     gatt: Option<SensorGatt>,
-    new_data_rx: tokio::sync::watch::Receiver<u64>,
-    new_data_count: u64,
 }
 
 impl Sensor {
@@ -70,19 +68,12 @@ impl Sensor {
     const SCS_STATUS_UUID: Uuid = uuid!("57c15dae-edd4-c195-284b-61f909f5325b");
     const SCS_BATTERY_VOLTAGE_UUID: Uuid = uuid!("dd08556b-ad05-7c83-2640-90448b38c121");
 
-    async fn new(adapter: &bluer::Adapter, device: bluer::Device) -> Result<Self, Error> {
+    async fn new(device: bluer::Device) -> Result<Self, Error> {
         if !device.is_paired().await? {
             return Err(Error::SensorInvalid("not paired".into()));
         }
 
-        let (new_data_tx, new_data_rx) = tokio::sync::watch::channel(0);
-
-        Ok(Sensor {
-            device,
-            gatt: None,
-            new_data_rx,
-            new_data_count: 0,
-        })
+        Ok(Sensor { device, gatt: None })
     }
 
     pub async fn find_by_address(
@@ -90,7 +81,6 @@ impl Sensor {
         address: bluer::Address,
     ) -> Result<Sensor, Error> {
         Self::new(
-            adapter,
             adapter
                 .device(address)
                 .map_err(|_| Error::SensorNotFound(address))?,
@@ -192,20 +182,6 @@ impl Sensor {
         self.device.address()
     }
 
-    async fn status(&self) -> Result<u32, Error> {
-        let service_data = self
-            .device
-            .service_data()
-            .await?
-            .ok_or(Error::PropertyNotFound)?;
-        let status_buf = service_data
-            .get(&Self::SCS_UUID)
-            .ok_or(Error::PropertyNotFound)?;
-        Cursor::new(&status_buf)
-            .read_u32::<LittleEndian>()
-            .map_err(|_| Error::InvalidData(status_buf.clone()))
-    }
-
     pub async fn wait_new_data(&mut self, adapter: &bluer::Adapter) -> Result<(), Error> {
         let mut monitor = adapter
             .register_advertisement_monitor(bluer::adv_mon::AdvertisementMonitor {
@@ -254,9 +230,6 @@ impl Sensor {
             .scs_status
             .write(&[0x00, 0x00, 0x00, 0x00])
             .await?;
-        // Ignore any spurious new data notifications that have come in since we
-        // connected
-        self.new_data_count = *self.new_data_rx.borrow();
         Ok(())
     }
 

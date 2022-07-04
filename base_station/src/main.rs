@@ -36,7 +36,10 @@ struct Config {
     new_data_timeout: u32,
 }
 
-async fn wait_new_data(sensor: &mut sensor::Sensor, adapter: &bluer::Adapter) -> anyhow::Result<SystemTime> {
+async fn wait_new_data(
+    sensor: &mut sensor::Sensor,
+    adapter: &bluer::Adapter,
+) -> anyhow::Result<SystemTime> {
     log::debug!("waiting for new data...");
     sensor.wait_new_data(adapter).await?;
     // Get timestamp as close as possible to when the data was collected
@@ -128,13 +131,14 @@ async fn collect_data(
     adapter: &bluer::Adapter,
     new_data_timeout: Duration,
 ) -> anyhow::Result<influxdb::Point> {
-    let timestamp = match tokio::time::timeout(new_data_timeout, wait_new_data(sensor, adapter)).await {
-        Ok(t) => t,
-        Err(_) => {
-            log::warn!("timed out waiting for new data");
-            Ok(SystemTime::now())
-        }
-    }?;
+    let timestamp =
+        match tokio::time::timeout(new_data_timeout, wait_new_data(sensor, adapter)).await {
+            Ok(t) => t,
+            Err(_) => {
+                log::warn!("timed out waiting for new data");
+                Ok(SystemTime::now())
+            }
+        }?;
     read_data(sensor, timestamp).await
 }
 
