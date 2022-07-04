@@ -129,7 +129,9 @@ impl Sensor {
     ) -> Result<Sensor, Error> {
         Self::new(
             adapter,
-            adapter.device(address).map_err(|_| Error::SensorNotFound(address))?,
+            adapter
+                .device(address)
+                .map_err(|_| Error::SensorNotFound(address))?,
         )
         .await
     }
@@ -244,6 +246,14 @@ impl Sensor {
 
     pub async fn wait_status(&mut self, expected_status: u32) -> Result<(), Error> {
         let mut events = self.device.events().await?;
+
+        // Check initial status after registering event watcher to try to avoid race
+        // condition
+        match self.status().await {
+            Ok(status) if status == expected_status => return Ok(()),
+            _ => (),
+        }
+
         while let Some(event) = events.next().await {
             match event {
                 DeviceEvent::PropertyChanged(DeviceProperty::ServiceData(service_data)) => {
@@ -266,7 +276,7 @@ impl Sensor {
                         return Ok(());
                     }
                 }
-                _ => ()
+                _ => (),
             }
         }
         // while self.new_data_rx.changed().await.is_ok() {
@@ -283,11 +293,11 @@ impl Sensor {
         Err(Error::SensorNotFound(self.device.address()))
     }
 
-    pub async fn wait_new_data(&mut self)-> Result<(), Error> {
+    pub async fn wait_new_data(&mut self) -> Result<(), Error> {
         self.wait_status(1).await
     }
 
-    pub async fn wait_new_data_cleared(&mut self)-> Result<(), Error> {
+    pub async fn wait_new_data_cleared(&mut self) -> Result<(), Error> {
         self.wait_status(0).await
     }
 
