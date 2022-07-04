@@ -77,45 +77,6 @@ impl Sensor {
 
         let (new_data_tx, new_data_rx) = tokio::sync::watch::channel(0);
 
-        let device_address = device.address();
-        let mut monitor = adapter
-            .register_advertisement_monitor(bluer::adv_mon::AdvertisementMonitor {
-                monitor_type: bluer::adv_mon::Type::OrPatterns,
-                rssi_sampling_period: Some(0),
-                patterns: Some(vec![bluer::adv_mon::Pattern {
-                    start_position: 0,
-                    ad_data_type: 0x21,
-                    content_of_pattern: vec![
-                        0xa1, 0xf8, 0x20, 0x0f, 0xa2, 0xc0, 0x4e, 0x72, 0x8e, 0x88, 0x61, 0x96,
-                        0xcb, 0xdf, 0xef, 0x89,
-                    ],
-                }]),
-                ..bluer::adv_mon::AdvertisementMonitor::default()
-            })
-            .await?;
-
-        tokio::spawn(async move {
-            let mut new_data_count = 0;
-            loop {
-                tokio::select! {
-                    event = monitor.next() => {
-                        match event {
-                            Some(event) => {
-                                if let bluer::adv_mon::AdvertisementMonitorEvent::DeviceFound(addr) = event {
-                                    if device_address == addr {
-                                        new_data_count += 1;
-                                        new_data_tx.send(new_data_count).ok();
-                                    }
-                                }
-                            }
-                            None => break
-                        };
-                    },
-                    _ = new_data_tx.closed() => break
-                }
-            }
-        });
-
         Ok(Sensor {
             device,
             gatt: None,
@@ -245,61 +206,32 @@ impl Sensor {
             .map_err(|_| Error::InvalidData(status_buf.clone()))
     }
 
-    pub async fn wait_status(&mut self, expected_status: u32) -> Result<(), Error> {
-        let mut events = self.device.events().await?;
+    pub async fn wait_new_data(&mut self, adapter: &bluer::Adapter) -> Result<(), Error> {
+        let mut monitor = adapter
+            .register_advertisement_monitor(bluer::adv_mon::AdvertisementMonitor {
+                monitor_type: bluer::adv_mon::Type::OrPatterns,
+                rssi_sampling_period: Some(0),
+                patterns: Some(vec![bluer::adv_mon::Pattern {
+                    start_position: 0,
+                    ad_data_type: 0x21,
+                    content_of_pattern: vec![
+                        0xa1, 0xf8, 0x20, 0x0f, 0xa2, 0xc0, 0x4e, 0x72, 0x8e, 0x88, 0x61, 0x96,
+                        0xcb, 0xdf, 0xef, 0x89, 0x01, 0x00, 0x00, 0x00,
+                    ],
+                }]),
+                ..bluer::adv_mon::AdvertisementMonitor::default()
+            })
+            .await?;
 
-        // Check initial status after registering event watcher to try to avoid race
-        // condition
-        match self.status().await {
-            Ok(status) if status == expected_status => return Ok(()),
-            _ => (),
-        }
-
-        while let Some(event) = events.next().await {
-            match event {
-                DeviceEvent::PropertyChanged(DeviceProperty::ServiceData(service_data)) => {
-                    let status_buf = if let Some(status_buf) = service_data.get(&Self::SCS_UUID) {
-                        status_buf
-                    } else {
-                        log::debug!("service data doesn't contain status");
-                        continue;
-                    };
-
-                    let status =
-                        if let Ok(status) = Cursor::new(&status_buf).read_u32::<LittleEndian>() {
-                            status
-                        } else {
-                            log::warn!("invalid status: {:?}", status_buf);
-                            continue;
-                        };
-
-                    if expected_status == status {
-                        return Ok(());
-                    }
+        while let Some(event) = monitor.next().await {
+            if let bluer::adv_mon::AdvertisementMonitorEvent::DeviceFound(addr) = event {
+                if self.device.address() == addr {
+                    return Ok(());
                 }
-                _ => (),
             }
         }
-        // while self.new_data_rx.changed().await.is_ok() {
-        //     let rx_new_data_count = *self.new_data_rx.borrow();
-        //     if rx_new_data_count <= self.new_data_count {
-        //         continue;
-        //     }
-        //     self.new_data_count = rx_new_data_count;
-        //     if self.status().await? != 1 {
-        //         continue;
-        //     }
-        //     return Ok(());
-        // }
+
         Err(Error::SensorNotFound(self.device.address()))
-    }
-
-    pub async fn wait_new_data(&mut self) -> Result<(), Error> {
-        self.wait_status(1).await
-    }
-
-    pub async fn wait_new_data_cleared(&mut self) -> Result<(), Error> {
-        self.wait_status(0).await
     }
 
     fn gatt(&self) -> Result<&SensorGatt, Error> {

@@ -36,9 +36,9 @@ struct Config {
     new_data_timeout: u32,
 }
 
-async fn wait_new_data(sensor: &mut sensor::Sensor) -> anyhow::Result<SystemTime> {
+async fn wait_new_data(sensor: &mut sensor::Sensor, adapter: &bluer::Adapter) -> anyhow::Result<SystemTime> {
     log::debug!("waiting for new data...");
-    sensor.wait_new_data().await?;
+    sensor.wait_new_data(adapter).await?;
     // Get timestamp as close as possible to when the data was collected
     Ok(SystemTime::now())
 }
@@ -115,9 +115,6 @@ async fn read_data(
     log::debug!("clearing status...");
     if let Err(e) = sensor.clear_new_data().await {
         log::warn!("failed to clear new data status: {}", e);
-    } else {
-        log::debug!("waiting for new data flag to clear...");
-        sensor.wait_new_data_cleared().await?;
     }
 
     log::debug!("disconnecting...");
@@ -128,9 +125,10 @@ async fn read_data(
 
 async fn collect_data(
     sensor: &mut sensor::Sensor,
+    adapter: &bluer::Adapter,
     new_data_timeout: Duration,
 ) -> anyhow::Result<influxdb::Point> {
-    let timestamp = match tokio::time::timeout(new_data_timeout, wait_new_data(sensor)).await {
+    let timestamp = match tokio::time::timeout(new_data_timeout, wait_new_data(sensor, adapter)).await {
         Ok(t) => t,
         Err(_) => {
             log::warn!("timed out waiting for new data");
@@ -191,6 +189,7 @@ async fn main() -> anyhow::Result<()> {
     loop {
         match collect_data(
             &mut sensor,
+            &adapter,
             Duration::from_millis(config.new_data_timeout as u64),
         )
         .await
