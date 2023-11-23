@@ -58,9 +58,7 @@ in {
 
     hardware.bluetooth = {
       enable = true;
-      package = pkgs.bluez.overrideAttrs ({ configureFlags ? [], ... }: {
-        configureFlags = configureFlags ++ [ "--enable-experimental" ];
-      });
+      package = pkgs.bluez5-experimental;
       # Enable advertisement monitor
       settings.General.Experimental = true;
     };
