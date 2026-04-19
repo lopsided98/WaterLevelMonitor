@@ -1,9 +1,17 @@
-{ stdenv, callPackage, python3Packages, git, cmake, ninja, gcc-arm-embedded }:
+{
+  stdenv,
+  callPackage,
+  python3Packages,
+  git,
+  cmake,
+  ninja,
+  gcc-arm-embedded,
+}:
 
 stdenv.mkDerivation {
   pname = "water-level-sensor";
   version = "0.1.0";
-  
+
   src = callPackage ./firmware/west.nix { };
 
   nativeBuildInputs = [
@@ -11,7 +19,8 @@ stdenv.mkDerivation {
     cmake
     ninja
     gcc-arm-embedded
-  ] ++ (with python3Packages; [
+  ]
+  ++ (with python3Packages; [
     west
     pyelftools
   ]);
@@ -28,7 +37,7 @@ stdenv.mkDerivation {
 
     runHook postBuild
   '';
-  
+
   installPhase = ''
     runHook preInstall
 
@@ -37,6 +46,6 @@ stdenv.mkDerivation {
 
     runHook postInstall
   '';
-  
+
   dontFixup = true;
 }

@@ -1,12 +1,22 @@
-{ pkgs ? import <nixpkgs> { } }: with pkgs;
+{
+  mkShell,
+  rustc,
+  cargo,
+  pkg-config,
+  rustfmt,
+  clippy,
+  crate2nix,
+  dbus,
+  openssl,
+}:
 
-stdenv.mkDerivation {
+mkShell {
   name = "base-station-env";
 
   nativeBuildInputs = [
     rustc
     cargo
-    pkgconfig
+    pkg-config
     # Stable mode is basically useless
     (rustfmt.override { asNightly = true; })
     clippy
@@ -22,11 +32,4 @@ stdenv.mkDerivation {
   hardeningDisable = [ "fortify" ];
 
   RUST_BACKTRACE = 1;
-
-  RUST_TOOLCHAIN = buildEnv {
-    name = "rust-toolchain";
-    paths = with buildPackages; [ rustc cargo ];
-  } + "/bin";
-  RUST_SRC_PATH = rustPlatform.rustLibSrc;
 }
-
