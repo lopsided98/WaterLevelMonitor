@@ -4,10 +4,12 @@
   cargo,
   pkg-config,
   rustfmt,
+  rust-analyzer,
   clippy,
   crate2nix,
   dbus,
   openssl,
+  rustPlatform,
 }:
 
 mkShell {
@@ -19,6 +21,7 @@ mkShell {
     pkg-config
     # Stable mode is basically useless
     (rustfmt.override { asNightly = true; })
+    rust-analyzer
     clippy
     crate2nix
   ];

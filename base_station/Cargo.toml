@@ -6,8 +6,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.58"
-# bluer = { path = "../bluer/bluer", features = ["bluetoothd", "serde"]}
-bluer = { git = "https://github.com/lopsided98/bluer", branch = "adv-mon", features = ["bluetoothd", "serde"] }
+bluer = { version = "0.17.4", features = ["bluetoothd", "serde"] }
 byteorder = "1.4.3"
 clap = { version = "3.2.8", features = ["cargo"] }
 env_logger = "0.9.0"

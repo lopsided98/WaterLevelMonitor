@@ -183,24 +183,25 @@ impl Sensor {
     }
 
     pub async fn wait_new_data(&mut self, adapter: &bluer::Adapter) -> Result<(), Error> {
-        let mut monitor = adapter
-            .register_advertisement_monitor(bluer::adv_mon::AdvertisementMonitor {
-                monitor_type: bluer::adv_mon::Type::OrPatterns,
-                patterns: Some(vec![bluer::adv_mon::Pattern {
+        let mm = adapter.monitor().await?;
+        let mut monitor = mm
+            .register(bluer::monitor::Monitor {
+                monitor_type: bluer::monitor::Type::OrPatterns,
+                patterns: Some(vec![bluer::monitor::Pattern {
                     start_position: 0,
-                    ad_data_type: 0x21,
-                    content_of_pattern: vec![
+                    data_type: 0x21,
+                    content: vec![
                         0xa1, 0xf8, 0x20, 0x0f, 0xa2, 0xc0, 0x4e, 0x72, 0x8e, 0x88, 0x61, 0x96,
                         0xcb, 0xdf, 0xef, 0x89, 0x01, 0x00, 0x00, 0x00,
                     ],
                 }]),
-                ..bluer::adv_mon::AdvertisementMonitor::default()
+                ..Default::default()
             })
             .await?;
 
         while let Some(event) = monitor.next().await {
-            if let bluer::adv_mon::AdvertisementMonitorEvent::DeviceFound(addr) = event {
-                if self.device.address() == addr {
+            if let bluer::monitor::MonitorEvent::DeviceFound(devid) = event {
+                if self.device.address() == devid.device {
                     return Ok(());
                 }
             }
