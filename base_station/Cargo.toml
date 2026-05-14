@@ -2,7 +2,7 @@
 name = "water_level_base_station"
 version = "0.1.0"
 authors = ["Ben Wolsieffer <benwolsieffer@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 anyhow = "1.0.102"

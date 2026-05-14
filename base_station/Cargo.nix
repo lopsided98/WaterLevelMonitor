@@ -5178,7 +5178,7 @@ rec {
       "water_level_base_station" = rec {
         crateName = "water_level_base_station";
         version = "0.1.0";
-        edition = "2018";
+        edition = "2021";
         crateBin = [
           {
             name = "water_level_base_station";
