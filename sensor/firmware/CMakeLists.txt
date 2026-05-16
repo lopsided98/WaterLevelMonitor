@@ -6,7 +6,6 @@ endif()
 if(NOT BOARD)
     set(BOARD nrf51_ble400)
 endif()
-set(DTC_OVERLAY_FILE ${CMAKE_CURRENT_SOURCE_DIR}/sensor.overlay)
 
 set(CONF_FILE common.conf)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -16,7 +15,7 @@ else()
 endif()
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(SensorFirmware)
+project(SensorFirmware LANGUAGES C)
 
 add_subdirectory(src)
 

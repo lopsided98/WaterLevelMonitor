@@ -1,14 +1,13 @@
 #include "bluetooth.h"
 
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/conn.h>
-#include <bluetooth/gatt.h>
-#include <bluetooth/hci.h>
-#include <bluetooth/uuid.h>
 #include <errno.h>
-#include <logging/log.h>
-#include <mgmt/mcumgr/smp_bt.h>
-#include <settings/settings.h>
+#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/conn.h>
+#include <zephyr/bluetooth/gatt.h>
+#include <zephyr/bluetooth/hci.h>
+#include <zephyr/bluetooth/uuid.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/settings/settings.h>
 
 #include "battery.h"
 #include "common.h"
@@ -73,10 +72,12 @@ static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
     BT_DATA(BT_DATA_SVC_DATA128, status_sd_data, sizeof(status_sd_data))};
 
-static const struct bt_data sd[] = {BT_DATA_BYTES(
-    BT_DATA_UUID16_ALL, BT_UUID_16_ENCODE(BT_UUID_BAS_VAL),  // Battery Service
-    BT_UUID_16_ENCODE(BT_UUID_ESS_VAL)                       // Environmental Sensing Service
-    )};
+static const struct bt_data sd[] = {
+    BT_DATA_BYTES(BT_DATA_UUID16_ALL, BT_UUID_16_ENCODE(BT_UUID_BAS_VAL),  // Battery Service
+                  BT_UUID_16_ENCODE(BT_UUID_ESS_VAL)  // Environmental Sensing Service
+                  ),
+    BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME, sizeof(CONFIG_BT_DEVICE_NAME) - 1),
+};
 
 // Battery Service
 BT_GATT_SERVICE_DEFINE(bas_service, BT_GATT_PRIMARY_SERVICE(BT_UUID_BAS),
@@ -147,7 +148,7 @@ BT_GATT_SERVICE_DEFINE(
 static void bluetooth_conn_count_callback(struct bt_conn* conn, void* data) {
     struct bt_conn_info info;
     bt_conn_get_info(conn, &info);
-    if (info.role == BT_CONN_ROLE_SLAVE) {
+    if (info.role == BT_CONN_ROLE_PERIPHERAL) {
         ++*((size_t*)data);
     }
 }
@@ -160,7 +161,7 @@ static size_t bluetooth_get_conn_count() {
 
 static int bluetooth_advertising_start() {
     LOG_DBG("Starting advertising...");
-    return bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONNECTABLE | BT_LE_ADV_OPT_USE_NAME,
+    return bt_le_adv_start(BT_LE_ADV_PARAM(BT_LE_ADV_OPT_CONN,
                                            BT_GAP_ADV_SLOW_INT_MIN,
                                            BT_GAP_ADV_SLOW_INT_MAX,
                                            NULL  // undirected advertising
@@ -176,11 +177,11 @@ static void bluetooth_connected(struct bt_conn* conn, uint8_t err) {
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
     if (err) {
-        LOG_ERR("Failed to connect to: %s (err %d)", log_strdup(addr), err);
+        LOG_ERR("Failed to connect to: %s (err %d)", addr, err);
         return;
     }
 
-    LOG_DBG("Connected to: %s", log_strdup(addr));
+    LOG_DBG("Connected to: %s", addr);
 
     //    IF_ERR(bt_conn_security(conn, BT_SECURITY_FIPS)) {
     //        LOG_ERR("Failed to enable security (err %d)", err);
@@ -192,7 +193,7 @@ static void bluetooth_disconnected(struct bt_conn* conn, uint8_t reason) {
     char addr[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    LOG_DBG("Disconnected from: %s", log_strdup(addr));
+    LOG_DBG("Disconnected from: %s", addr);
 
     // Stop advertising if no one else is connected and the data has been retrieved
     // We check for a single connection because the connection that triggered this callback is still
@@ -219,21 +220,21 @@ static void bluetooth_auth_cancel(struct bt_conn* conn) {
     char addr[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    LOG_WRN("Authentication failed with: %s", log_strdup(addr));
+    LOG_WRN("Authentication failed with: %s", addr);
 }
 
 static void bluetooth_pairing_complete(struct bt_conn* conn, bool bonded) {
     char addr[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    LOG_DBG("Paired with: %s\n", log_strdup(addr));
+    LOG_DBG("Paired with: %s", addr);
 }
 
 static void bluetooth_pairing_failed(struct bt_conn* conn, enum bt_security_err reason) {
     char addr[BT_ADDR_LE_STR_LEN];
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
-    LOG_WRN("Pairing failed with %s with error: %d", log_strdup(addr), reason);
+    LOG_WRN("Pairing failed with %s with error: %d", addr, reason);
 }
 
 static struct bt_conn_auth_cb auth_callbacks = {
@@ -241,6 +242,9 @@ static struct bt_conn_auth_cb auth_callbacks = {
     .passkey_entry = NULL,
     .passkey_confirm = NULL,
     .cancel = bluetooth_auth_cancel,
+};
+
+static struct bt_conn_auth_info_cb auth_info_callbacks = {
     .pairing_complete = bluetooth_pairing_complete,
     .pairing_failed = bluetooth_pairing_failed,
 };
@@ -261,6 +265,7 @@ static void bluetooth_ready(int err) {
 
     bt_conn_cb_register(&conn_callbacks);
     bt_conn_auth_cb_register(&auth_callbacks);
+    bt_conn_auth_info_cb_register(&auth_info_callbacks);
 }
 
 static ssize_t bluetooth_battery_read(struct bt_conn* conn, const struct bt_gatt_attr* attr,

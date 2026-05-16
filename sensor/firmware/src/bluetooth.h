@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
-#include <sys/util.h>
+#include <zephyr/sys/util.h>
 
 enum system_error {
     ERROR_TEMPERATURE = BIT(0),

@@ -1,10 +1,9 @@
 #include "watchdog.h"
 
 #include <hal/nrf_power.h>
-#include <logging/log.h>
-#include <logging/log_ctrl.h>
-#include <power/reboot.h>
-#include <zephyr.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/logging/log_ctrl.h>
+#include <zephyr/sys/reboot.h>
 
 #include "bluetooth.h"
 
@@ -21,10 +20,10 @@ int watchdog_init(void) {
     return 0;
 }
 
-FUNC_NORETURN void k_sys_fatal_error_handler(unsigned int reason, const z_arch_esf_t* esf) {
+FUNC_NORETURN void k_sys_fatal_error_handler(unsigned int reason, const struct arch_esf* esf) {
     LOG_ERR("FATAL ERROR... Resetting");
     LOG_PANIC();
     // NRF51 implementation passes reason to GPREGRET
-    sys_reboot(0);
+    sys_reboot(SYS_REBOOT_COLD);
     CODE_UNREACHABLE;
 }

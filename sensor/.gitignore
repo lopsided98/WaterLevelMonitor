@@ -1,7 +1,7 @@
 .west/
 .cache/
-bootloader/
-modules/
-tools/
-west-nix/
-zephyr/
+/bootloader/
+/build/
+/modules/
+/tools/
+/zephyr/

@@ -1,14 +1,34 @@
+#include <errno.h>
 #define DT_DRV_COMPAT jsn_sr04t
 
-#include "jsn_sr04t.h"
-
-#include <drivers/gpio.h>
-#include <logging/log.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/pm/device.h>
 
 #include "../common.h"
 
 #define LOG_LEVEL CONFIG_SENSOR_LOG_LEVEL
 LOG_MODULE_REGISTER(jsn_sr04t);
+
+enum sr04t_state { STATE_OFF, STATE_READY, STATE_WAIT_ECHO_START, STATE_WAIT_ECHO_END };
+
+struct sr04t_config {
+    const struct gpio_dt_spec trig_gpio;
+    const struct gpio_dt_spec echo_gpio;
+    const struct gpio_dt_spec supply_gpio;
+};
+
+struct sr04t_data {
+    struct gpio_callback echo_cb;
+    struct k_sem echo_end_sem;
+
+    enum sr04t_state state;
+
+    uint32_t echo_start_cycles;
+    uint32_t echo_end_cycles;
+    struct sensor_value value;
+};
 
 static void sr04t_echo_interrupt(const struct device* port, struct gpio_callback* cb,
                                  uint32_t pins) {
@@ -39,7 +59,7 @@ int sr04t_sample_fetch(const struct device* dev, enum sensor_channel chan) {
 
     if (chan != SENSOR_CHAN_ALL && chan != SENSOR_CHAN_DISTANCE) return -ENOTSUP;
 
-    device_busy_set(dev);
+    pm_device_busy_set(dev);
 
     IF_ERR(gpio_pin_set(config->trig_gpio.port, config->trig_gpio.pin, 1)) goto cleanup;
     k_busy_wait(50);
@@ -85,7 +105,7 @@ cleanup:
     gpio_pin_interrupt_configure(config->echo_gpio.port, config->echo_gpio.pin, GPIO_INT_DISABLE);
     data->state = STATE_READY;
 
-    device_busy_clear(dev);
+    pm_device_busy_clear(dev);
 
     return err;
 }
@@ -101,52 +121,34 @@ static int sr04t_channel_get(const struct device* dev, enum sensor_channel chan,
     return 0;
 }
 
-static int sr04t_pm_control(const struct device* dev, uint32_t cmd, uint32_t* state,
-                            pm_device_cb cb, void* arg) {
+#ifdef CONFIG_PM_DEVICE
+static int sr04t_pm_action(const struct device* dev, enum pm_device_action action) {
     int err = 0;
 
     const struct sr04t_config* config = dev->config;
     struct sr04t_data* data = dev->data;
 
-    switch (cmd) {
-        case PM_DEVICE_STATE_SET:
-            switch (*state) {
-                case PM_DEVICE_STATE_ACTIVE:
-                    if (data->state == STATE_OFF) {
-                        IF_ERR(gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 1))
-                        goto cleanup;
-                        // Wait for device to start
-                        k_sleep(K_MSEC(100));
-                        data->state = STATE_READY;
-                    }
-                    break;
-                case PM_DEVICE_STATE_OFF:
-                    if (data->state != STATE_OFF) {
-                        IF_ERR(gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 0))
-                        goto cleanup;
-                        data->state = STATE_OFF;
-                    }
-                    break;
-                default:
-                    err = -EINVAL;
-                    goto cleanup;
+    switch (action) {
+        case PM_DEVICE_STATE_ACTIVE:
+            if (data->state == STATE_OFF) {
+                RET_ERR(gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 1));
+                // Wait for device to start
+                k_sleep(K_MSEC(100));
+                data->state = STATE_READY;
             }
             break;
-        case PM_DEVICE_STATE_GET:
-            *state = data->state == STATE_OFF ? PM_DEVICE_STATE_OFF : PM_DEVICE_STATE_ACTIVE;
+        case PM_DEVICE_STATE_OFF:
+            if (data->state != STATE_OFF) {
+                RET_ERR(gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 0));
+                data->state = STATE_OFF;
+            }
             break;
         default:
-            err = -EINVAL;
-            goto cleanup;
+            return -ENOTSUP;
     }
-
-cleanup:
-    if (cb) {
-        cb(dev, err, state, arg);
-    }
-
-    return err;
+    return 0;
 }
+#endif
 
 static int sr04t_init(const struct device* dev) {
     int err = 0;
@@ -203,9 +205,10 @@ const struct sensor_driver_api sr04t_api = {
         .echo_gpio = GPIO_DT_SPEC_INST_GET(inst, echo_gpios),      \
         .supply_gpio = GPIO_DT_SPEC_INST_GET(inst, supply_gpios)}; \
                                                                    \
+    PM_DEVICE_DT_INST_DEFINE(inst, sr04t_pm_action);               \
     DEVICE_DT_INST_DEFINE(inst,                                    \
                           sr04t_init,                              \
-                          sr04t_pm_control,                        \
+                          PM_DEVICE_DT_INST_GET(inst),             \
                           &sr04t_data_##inst,                      \
                           &sr04t_config_##inst,                    \
                           POST_KERNEL,                             \

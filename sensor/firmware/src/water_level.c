@@ -1,9 +1,11 @@
 #include "water_level.h"
 
-#include <device.h>
-#include <drivers/sensor.h>
-#include <logging/log.h>
-#include <settings/settings.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/device_runtime.h>
+#include <zephyr/settings/settings.h>
 
 #include "bluetooth.h"
 #include "common.h"
@@ -18,10 +20,12 @@ static struct {
     atomic_t water_level;     // mm
     atomic_t water_distance;  // mm
     atomic_t tank_depth;      // mm
-} state = {.rangefinder = NULL,
-           .water_level = ATOMIC_INIT(0),
-           .water_distance = ATOMIC_INIT(0),
-           .tank_depth = ATOMIC_INIT(2000)};
+} state = {
+    .rangefinder = DEVICE_DT_GET(DT_NODELABEL(rangefinder)),
+    .water_level = ATOMIC_INIT(0),
+    .water_distance = ATOMIC_INIT(0),
+    .tank_depth = ATOMIC_INIT(2000),
+};
 
 static int water_level_settings_set(const char* key, size_t len_rd, settings_read_cb read_cb,
                                     void* cb_arg) {
@@ -41,9 +45,6 @@ SETTINGS_STATIC_HANDLER_DEFINE(water_level_settings, "wl", NULL, water_level_set
                                NULL);
 
 int water_level_init(void) {
-    state.rangefinder = device_get_binding(DT_LABEL(DT_NODELABEL(rangefinder)));
-    if (!state.rangefinder) return -ENODEV;
-
     return 0;
 }
 
@@ -51,7 +52,7 @@ int water_level_update(void) {
     int err = 0;
     if (!state.rangefinder) return -ENODEV;
 
-    pm_device_state_set(state.rangefinder, PM_DEVICE_STATE_ACTIVE, NULL, NULL);
+    pm_device_runtime_get(state.rangefinder);
 
     uint32_t distance_mm_avg = 0;
 
@@ -71,7 +72,7 @@ int water_level_update(void) {
         k_sleep(K_MSEC(50));
     }
 
-    pm_device_state_set(state.rangefinder, PM_DEVICE_STATE_OFF, NULL, NULL);
+    pm_device_runtime_put(state.rangefinder);
 
     if (samples != NUM_WATER_SAMPLES) {
         LOG_ERR("Only measured %d water level samples", samples);

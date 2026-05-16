@@ -1,9 +1,9 @@
 #include "battery.h"
 
-#include <drivers/adc.h>
-#include <drivers/sensor.h>
-#include <logging/log.h>
-#include <sys/atomic.h>
+#include <zephyr/drivers/adc.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/sys/atomic.h>
 
 #include "bluetooth.h"
 #include "common.h"
@@ -17,14 +17,13 @@ static struct {
     const struct device* battery;
     atomic_t level;    // %
     atomic_t voltage;  // mV
-} state = {.battery = NULL, .level = ATOMIC_INIT(0), .voltage = ATOMIC_INIT(0)};
+} state = {
+    .battery = DEVICE_DT_GET(DT_NODELABEL(battery)),
+    .level = ATOMIC_INIT(0),
+    .voltage = ATOMIC_INIT(0),
+};
 
-int battery_init(void) {
-    state.battery = device_get_binding(DT_LABEL(DT_NODELABEL(battery)));
-    if (!state.battery) return -ENODEV;
-
-    return 0;
-}
+int battery_init(void) { return 0; }
 
 int battery_update(void) {
     int err = 0;

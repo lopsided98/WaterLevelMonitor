@@ -1,9 +1,5 @@
-#include <device.h>
-#include <drivers/gpio.h>
-#include <drivers/sensor.h>
-#include <logging/log.h>
-#include <settings/settings.h>
-#include <zephyr.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/settings/settings.h>
 
 #include "battery.h"
 #include "bluetooth.h"
@@ -27,8 +23,6 @@ void update_thread(void* p1, void* p2, void* p3) {
 
     k_timer_start(&update_timer, UPDATE_PERIOD, UPDATE_PERIOD);
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
     for (;;) {
         IF_ERR(temperature_update()) {
             LOG_ERR("Failed to update temperature (err %d)", err);
@@ -53,7 +47,6 @@ void update_thread(void* p1, void* p2, void* p3) {
 
         k_timer_status_sync(&update_timer);
     }
-#pragma clang diagnostic pop
 }
 
 K_THREAD_STACK_DEFINE(update_thread_stack, 1024);

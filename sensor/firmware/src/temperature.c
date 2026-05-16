@@ -1,12 +1,11 @@
 #include "temperature.h"
 
-#include <device.h>
-#include <drivers/sensor.h>
-#include <logging/log.h>
-#include <settings/settings.h>
-#include <sys/atomic.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/logging/log.h>
+#include <zephyr/settings/settings.h>
+#include <zephyr/sys/atomic.h>
 
-#include "bluetooth.h"
 #include "common.h"
 
 LOG_MODULE_REGISTER(temperature);
@@ -14,14 +13,12 @@ LOG_MODULE_REGISTER(temperature);
 static struct {
     const struct device* sensor;
     atomic_t temperature;
-} state = {.sensor = NULL, .temperature = ATOMIC_INIT(0)};
+} state = {
+    .sensor = DEVICE_DT_GET(DT_NODELABEL(temp)),
+    .temperature = ATOMIC_INIT(0),
+};
 
-int temperature_init(void) {
-    state.sensor = device_get_binding(DT_LABEL(DT_NODELABEL(temp)));
-    if (!state.sensor) return -ENODEV;
-
-    return 0;
-}
+int temperature_init(void) { return 0; }
 
 int temperature_update(void) {
     int err = 0;

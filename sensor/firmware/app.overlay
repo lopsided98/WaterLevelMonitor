@@ -4,7 +4,7 @@
     };
 
     rangefinder: rangefinder {
-        status = "ok";
+        status = "okay";
         compatible = "jsn,sr04t";
         trig-gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
         echo-gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
@@ -13,7 +13,7 @@
     };
 
     battery: battery {
-        status = "ok";
+        status = "okay";
         compatible = "nordic,adc-supply";
         label = "supply-voltage";
     };

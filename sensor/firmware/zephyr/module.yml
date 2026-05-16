@@ -1,0 +1,3 @@
+name: water_level_monitor
+build:
+  cmake: .

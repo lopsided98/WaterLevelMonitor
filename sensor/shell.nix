@@ -30,10 +30,11 @@ mkShell {
   ]
   ++ (with python3Packages; [
     west
+    packaging
     pyelftools
-    click
-    cryptography
-    intelhex
+    pykwalify
+    pyyaml
+    jsonschema
   ]);
 
   GNUARMEMB_TOOLCHAIN_PATH = gcc-arm-embedded;

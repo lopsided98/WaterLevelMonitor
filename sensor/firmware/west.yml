@@ -7,11 +7,17 @@ manifest:
   projects:
     - name: zephyr
       remote: lopsided98
-      revision: d0d6731089b2b10dd0e9c5b6bdc42e4ccf2050b8
-      import: true
+      revision: 487d489b6f0abbbab754a559627222def971b493
+      import:
+        name-allowlist:
+          - cmsis_6
+          - hal_nordic
+          - mbedtls
+          - tf-psa-crypto
     - name: west-nix
       remote: lopsided98
-      revision: 3bd2db86413da592a1bf7a5e1f7a25245ceedefe
+      revision: 3f31c82804e217842dc40e21ab8f95a037dfc8f7
       import: true
+      path: tools/west-nix
   self:
     path: firmware
