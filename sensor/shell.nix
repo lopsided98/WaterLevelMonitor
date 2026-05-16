@@ -10,6 +10,7 @@
   gcovr,
   openocd,
   gdb,
+  nix-prefetch-git,
   python3Packages,
 }:
 
@@ -27,6 +28,7 @@ mkShell {
     gcovr
     openocd
     gdb
+    nix-prefetch-git
   ]
   ++ (with python3Packages; [
     west
