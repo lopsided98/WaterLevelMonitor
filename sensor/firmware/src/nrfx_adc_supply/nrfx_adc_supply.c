@@ -1,10 +1,7 @@
 #define DT_DRV_COMPAT nordic_adc_supply
 
-#include "nrfx_adc_supply.h"
-
-#include <soc.h>
 #include <zephyr/drivers/adc.h>
-#include <zephyr/drivers/gpio.h>
+#include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
 
 #include "../common.h"
