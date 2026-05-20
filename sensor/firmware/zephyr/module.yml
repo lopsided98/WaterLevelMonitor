@@ -1,3 +1,4 @@
 name: water_level_monitor
 build:
-  cmake: .
+  cmake: lib
+  kconfig: lib/Kconfig

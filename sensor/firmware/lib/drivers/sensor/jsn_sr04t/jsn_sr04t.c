@@ -6,10 +6,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/pm/device.h>
 
-#include "../common.h"
-
-#define LOG_LEVEL CONFIG_SENSOR_LOG_LEVEL
-LOG_MODULE_REGISTER(jsn_sr04t);
+LOG_MODULE_REGISTER(jsn_sr04t, CONFIG_SENSOR_LOG_LEVEL);
 
 enum sr04t_state { STATE_OFF, STATE_READY, STATE_WAIT_ECHO_START, STATE_WAIT_ECHO_END };
 
@@ -52,7 +49,7 @@ static void sr04t_echo_interrupt(const struct device* port, struct gpio_callback
 }
 
 int sr04t_sample_fetch(const struct device* dev, enum sensor_channel chan) {
-    int err = 0;
+    int err;
 
     const struct sr04t_config* config = dev->config;
     struct sr04t_data* data = dev->data;
@@ -61,36 +58,38 @@ int sr04t_sample_fetch(const struct device* dev, enum sensor_channel chan) {
 
     pm_device_busy_set(dev);
 
-    IF_ERR(gpio_pin_set(config->trig_gpio.port, config->trig_gpio.pin, 1)) goto cleanup;
+    err = gpio_pin_set(config->trig_gpio.port, config->trig_gpio.pin, 1);
+    if (err < 0) goto cleanup;
     k_busy_wait(50);
-    IF_ERR(gpio_pin_set(config->trig_gpio.port, config->trig_gpio.pin, 0)) goto cleanup;
+    err = gpio_pin_set(config->trig_gpio.port, config->trig_gpio.pin, 0);
+    if (err < 0) goto cleanup;
 
     data->state = STATE_WAIT_ECHO_START;
 
     k_sem_reset(&data->echo_end_sem);
 
-    IF_ERR(gpio_pin_interrupt_configure(config->echo_gpio.port,
-                                        config->echo_gpio.pin,
-                                        GPIO_INT_EDGE_BOTH))
-    goto cleanup;
+    err = gpio_pin_interrupt_configure(config->echo_gpio.port,
+                                       config->echo_gpio.pin,
+                                       GPIO_INT_EDGE_BOTH);
+    if (err < 0) goto cleanup;
 
     // Wait for interrupt processing to finish
     // FIXME: causes BLE stack to crash under load
+    // Is this still true with Zephyr 4.4?
     err = k_sem_take(&data->echo_end_sem, K_MSEC(CONFIG_JSN_SR04T_ECHO_TIMEOUT));
-    //     k_sleep(CONFIG_JSN_SR04T_ECHO_TIMEOUT);
     __ASSERT_NO_MSG(err != -EBUSY);
     if (err == -EAGAIN) {
         // Timeout
-        err = -EIO;
+        err = -ETIMEDOUT;
         goto cleanup;
     }
 
-    __ASSERT_NO_MSG(data->state == STATE_READY);
+    __ASSERT_NO_MSG(STATE_READY == data->state);
 
-    IF_ERR(gpio_pin_interrupt_configure(config->echo_gpio.port,
-                                        config->echo_gpio.pin,
-                                        GPIO_INT_DISABLE))
-    goto cleanup;
+    err = gpio_pin_interrupt_configure(config->echo_gpio.port,
+                                       config->echo_gpio.pin,
+                                       GPIO_INT_DISABLE);
+    if (err < 0) goto cleanup;
 
     uint32_t elapsed_cycles = data->echo_end_cycles - data->echo_start_cycles;
     uint32_t elapsed_ns = k_cyc_to_ns_floor32(elapsed_cycles);
@@ -123,7 +122,7 @@ static int sr04t_channel_get(const struct device* dev, enum sensor_channel chan,
 
 #ifdef CONFIG_PM_DEVICE
 static int sr04t_pm_action(const struct device* dev, enum pm_device_action action) {
-    int err = 0;
+    int err;
 
     const struct sr04t_config* config = dev->config;
     struct sr04t_data* data = dev->data;
@@ -131,7 +130,8 @@ static int sr04t_pm_action(const struct device* dev, enum pm_device_action actio
     switch (action) {
         case PM_DEVICE_STATE_ACTIVE:
             if (data->state == STATE_OFF) {
-                RET_ERR(gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 1));
+                err = gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 1);
+                if (err < 0) return err;
                 // Wait for device to start
                 k_sleep(K_MSEC(100));
                 data->state = STATE_READY;
@@ -139,7 +139,8 @@ static int sr04t_pm_action(const struct device* dev, enum pm_device_action actio
             break;
         case PM_DEVICE_STATE_OFF:
             if (data->state != STATE_OFF) {
-                RET_ERR(gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 0));
+                err = gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 0);
+                if (err < 0) return err;
                 data->state = STATE_OFF;
             }
             break;
@@ -151,7 +152,7 @@ static int sr04t_pm_action(const struct device* dev, enum pm_device_action actio
 #endif
 
 static int sr04t_init(const struct device* dev) {
-    int err = 0;
+    int err;
 
     const struct sr04t_config* config = dev->config;
     struct sr04t_data* data = dev->data;
@@ -162,32 +163,36 @@ static int sr04t_init(const struct device* dev) {
 
     // Trig
     if (!device_is_ready(config->trig_gpio.port)) {
-        LOG_ERR("Trigger GPIO device is not ready");
+        LOG_ERR_DEVICE_NOT_READY(config->trig_gpio.port);
         return -ENODEV;
     }
-    RET_ERR(gpio_pin_configure(config->trig_gpio.port,
-                               config->trig_gpio.pin,
-                               GPIO_OUTPUT_INACTIVE | config->trig_gpio.dt_flags));
+    err = gpio_pin_configure(config->trig_gpio.port,
+                             config->trig_gpio.pin,
+                             GPIO_OUTPUT_INACTIVE | config->trig_gpio.dt_flags);
+    if (err < 0) return err;
 
     // Echo
     if (!device_is_ready(config->echo_gpio.port)) {
-        LOG_ERR("Echo GPIO device is not ready");
+        LOG_ERR_DEVICE_NOT_READY(config->echo_gpio.port);
         return -ENODEV;
     }
-    RET_ERR(gpio_pin_configure(config->echo_gpio.port,
-                               config->echo_gpio.pin,
-                               GPIO_INPUT | config->echo_gpio.dt_flags));
+    err = gpio_pin_configure(config->echo_gpio.port,
+                             config->echo_gpio.pin,
+                             GPIO_INPUT | config->echo_gpio.dt_flags);
+    if (err < 0) return err;
     gpio_init_callback(&data->echo_cb, sr04t_echo_interrupt, BIT(config->echo_gpio.pin));
-    RET_ERR(gpio_add_callback(config->echo_gpio.port, &data->echo_cb));
+    err = gpio_add_callback(config->echo_gpio.port, &data->echo_cb);
+    if (err < 0) return err;
 
     // Enable
     if (!device_is_ready(config->supply_gpio.port)) {
-        LOG_ERR("Enable GPIO device is not ready");
+        LOG_ERR_DEVICE_NOT_READY(config->supply_gpio.port);
         return -ENODEV;
     }
-    RET_ERR(gpio_pin_configure(config->supply_gpio.port,
-                               config->supply_gpio.pin,
-                               GPIO_OUTPUT_INACTIVE | config->supply_gpio.dt_flags));
+    err = gpio_pin_configure(config->supply_gpio.port,
+                             config->supply_gpio.pin,
+                             GPIO_OUTPUT_INACTIVE | config->supply_gpio.dt_flags);
+    if (err < 0) return err;
 
     return 0;
 }
@@ -206,13 +211,13 @@ const struct sensor_driver_api sr04t_api = {
         .supply_gpio = GPIO_DT_SPEC_INST_GET(inst, supply_gpios)}; \
                                                                    \
     PM_DEVICE_DT_INST_DEFINE(inst, sr04t_pm_action);               \
-    DEVICE_DT_INST_DEFINE(inst,                                    \
-                          sr04t_init,                              \
-                          PM_DEVICE_DT_INST_GET(inst),             \
-                          &sr04t_data_##inst,                      \
-                          &sr04t_config_##inst,                    \
-                          POST_KERNEL,                             \
-                          CONFIG_SENSOR_INIT_PRIORITY,             \
-                          &sr04t_api);
+    SENSOR_DEVICE_DT_INST_DEFINE(inst,                             \
+                                 sr04t_init,                       \
+                                 PM_DEVICE_DT_INST_GET(inst),      \
+                                 &sr04t_data_##inst,               \
+                                 &sr04t_config_##inst,             \
+                                 POST_KERNEL,                      \
+                                 CONFIG_SENSOR_INIT_PRIORITY,      \
+                                 &sr04t_api);
 
 DT_INST_FOREACH_STATUS_OKAY(SR04T_INST)

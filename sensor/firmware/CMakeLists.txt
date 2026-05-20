@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Ben Wolsieffer
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 cmake_minimum_required(VERSION 3.13.1)
 
 if(NOT ZEPHYR_TOOLCHAIN_VARIANT)
@@ -7,16 +10,7 @@ if(NOT BOARD)
     set(BOARD nrf51_ble400)
 endif()
 
-set(CONF_FILE common.conf)
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    list(APPEND CONF_FILE debug.conf)
-else()
-    list(APPEND CONF_FILE release.conf)
-endif()
-
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(SensorFirmware LANGUAGES C)
 
 add_subdirectory(src)
-
-#target_link_libraries_ifdef(CONFIG_JSN_SR04T app PUBLIC jsn_sr04t)

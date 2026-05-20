@@ -1,3 +1,0 @@
-zephyr_library_named(jsn_sr04t)
-
-zephyr_library_sources_if_kconfig(jsn_sr04t.c)

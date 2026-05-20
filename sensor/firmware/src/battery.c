@@ -5,7 +5,6 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/atomic.h>
 
-#include "bluetooth.h"
 #include "common.h"
 
 LOG_MODULE_REGISTER(battery);

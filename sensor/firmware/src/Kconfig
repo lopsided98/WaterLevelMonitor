@@ -5,5 +5,4 @@ config BT_DEFAULT_PASSKEY
     help
         Default bluetooth fixed passkey
 
-rsource "jsn_sr04t/Kconfig"
 rsource "nrfx_adc_supply/Kconfig"
