@@ -4,8 +4,6 @@
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
 
-#include "../common.h"
-
 #define LOG_LEVEL CONFIG_SENSOR_LOG_LEVEL
 LOG_MODULE_REGISTER(nrfx_adc_supply);
 
@@ -20,8 +18,6 @@ struct nrfx_adc_supply_config {
 #define NRFX_ADC_VBG_VOLTAGE 1200
 
 int nrfx_adc_supply_sample_fetch(const struct device* dev, enum sensor_channel chan) {
-    int err = 0;
-
     const struct nrfx_adc_supply_config* config = dev->config;
     struct nrfx_adc_supply_data* data = dev->data;
 
@@ -30,12 +26,15 @@ int nrfx_adc_supply_sample_fetch(const struct device* dev, enum sensor_channel c
     int16_t sample = 0;
     const uint8_t resolution = 10;
 
-    const struct adc_sequence sequence = {.channels = BIT(0),
-                                          .buffer = &sample,
-                                          .buffer_size = sizeof(sample),
-                                          .resolution = resolution};
+    const struct adc_sequence sequence = {
+        .channels = BIT(0),
+        .buffer = &sample,
+        .buffer_size = sizeof(sample),
+        .resolution = resolution,
+    };
 
-    RET_ERR(adc_read(config->adc, &sequence));
+    int err = adc_read(config->adc, &sequence);
+    if (err < 0) return err;
 
     uint32_t millivolts = (((uint32_t)sample) * NRFX_ADC_VBG_VOLTAGE * 3) >> resolution;
 
@@ -57,8 +56,6 @@ static int nrfx_adc_supply_channel_get(const struct device* dev, enum sensor_cha
 }
 
 static int nrfx_adc_supply_init(const struct device* dev) {
-    int err = 0;
-
     const struct nrfx_adc_supply_config* config = dev->config;
 
     struct adc_channel_cfg adc_cfg = {
@@ -68,9 +65,7 @@ static int nrfx_adc_supply_init(const struct device* dev) {
         .input_positive = ADC_CONFIG_PSEL_Disabled,
     };
 
-    RET_ERR(adc_channel_setup(config->adc, &adc_cfg));
-
-    return 0;
+    return adc_channel_setup(config->adc, &adc_cfg);
 }
 
 const struct sensor_driver_api nrfx_adc_supply_api = {

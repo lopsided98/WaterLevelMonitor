@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Ben Wolsieffer
 # SPDX-License-Identifier: Apache-2.0
 
-rsource "jsn_sr04t/Kconfig"
-rsource "nrfx_adc_supply/Kconfig"
+zephyr_library()
+zephyr_library_sources(nrfx_adc_supply.c)

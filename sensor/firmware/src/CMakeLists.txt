@@ -5,4 +5,4 @@ target_sources(app PRIVATE
         temperature.c
         water_level.c
         watchdog.c
-        nrfx_adc_supply/nrfx_adc_supply.c)
+)
