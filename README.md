@@ -1,0 +1,5 @@
+# Water Level Monitor
+
+Wireless water tank monitoring system, using a ultrasonic rangefinder connected to a Nordic nRF51 microcontroller running Zephyr RTOS. The nRF51 communicates over Bluetooth LE to a Rust application running on a Raspberry Pi Zero W. Water level measurements are collected every 15 minutes and uploaded to an InfluxDB database.
+
+My grandfather's cottage in Maine uses a rainwater collection system for its water supply. Rainwater is stored in a set of tanks under the house. The ultrasonic rangefinder is attached under a tank lid, and the nRF51 is housed nearby in a weathertight box with a pair of D cell alkaline batteries for power. The batteries last for several summers (first replaced in Spring 2026 after being installed in 2021, although the sensor did not run continuously that entire time). The Raspberry Pi is inside the cottage, connected to wall power and WiFi.
