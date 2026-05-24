@@ -201,8 +201,12 @@ static void bluetooth_disconnected(struct bt_conn* conn, uint8_t reason) {
     if (!(*status & STATUS_NEW_DATA)) {
         size_t conn_count = bluetooth_get_conn_count();
         if (conn_count <= 1) {
-            bt_le_adv_stop();
-            LOG_DBG("Stopped advertising at disconnect");
+            int err = bt_le_adv_stop();
+            if (err < 0) {
+                LOG_ERR("Failed to stop advertising (err %d)", err);
+            } else {
+                LOG_DBG("Stopped advertising at disconnect");
+            }
         } else {
             LOG_DBG("%zu clients still connected, not stopping advertising", conn_count - 1);
         }
@@ -213,7 +217,7 @@ static struct bt_conn_cb conn_callbacks = {.connected = bluetooth_connected,
                                            .disconnected = bluetooth_disconnected};
 
 static void bluetooth_passkey_display(struct bt_conn* conn, unsigned int passkey) {
-    LOG_INF("passkey: %d\n", passkey);
+    LOG_INF("Passkey: %d", passkey);
 }
 
 static void bluetooth_auth_cancel(struct bt_conn* conn) {
@@ -251,14 +255,14 @@ static struct bt_conn_auth_info_cb auth_info_callbacks = {
 
 static void bluetooth_ready(int err) {
     if (err) {
-        LOG_ERR("Initialization failed (err %d)\n", err);
+        LOG_ERR("Initialization failed (err %d)", err);
         return;
     }
 
-    IF_ERR(settings_load()) { LOG_ERR("Loading settings failed (err %d)\n", err); }
+    IF_ERR(settings_load()) { LOG_ERR("Loading settings failed (err %d)", err); }
 
     IF_ERR(bt_passkey_set(CONFIG_BT_DEFAULT_PASSKEY)) {
-        LOG_ERR("Setting passkey failed (err %d)\n", err);
+        LOG_ERR("Setting passkey failed (err %d)", err);
         // This would be a security issue
         return;
     }
@@ -342,12 +346,12 @@ static void bluetooth_status_update() {
 
     if (*status & STATUS_NEW_DATA) {
         // If there is new data, start advertising
-        int err = 0;
+        int err;
         IF_ERR(bluetooth_advertising_start()) {
             if (err == -EALREADY) {
-                LOG_DBG("Advertising already started\n");
+                LOG_DBG("Advertising already started");
             } else {
-                LOG_ERR("Advertising failed to restart (err %d)\n", err);
+                LOG_ERR("Advertising failed to restart (err %d)", err);
             }
         }
     } else if (bluetooth_get_conn_count() == 0) {
@@ -391,13 +395,7 @@ static ssize_t bluetooth_battery_voltage_read(struct bt_conn* conn, const struct
     return bt_gatt_attr_read(conn, attr, buf, len, offset, &voltage, sizeof(voltage));
 }
 
-int bluetooth_init(void) {
-    int err = 0;
-
-    RET_ERR(bt_enable(bluetooth_ready));
-
-    return 0;
-}
+int bluetooth_init(void) { return bt_enable(bluetooth_ready); }
 
 void bluetooth_set_error(enum system_error e) { atomic_or(&error, e); }
 

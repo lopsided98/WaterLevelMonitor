@@ -13,7 +13,7 @@ static const uint16_t BATTERY_FULL_MILLIVOLTS = 3200;
 static const uint16_t BATTERY_EMPTY_MILLIVOLTS = 1800;
 
 static struct {
-    const struct device* battery;
+    const struct device* const battery;
     atomic_t level;    // %
     atomic_t voltage;  // mV
 } state = {
@@ -25,9 +25,7 @@ static struct {
 int battery_init(void) { return 0; }
 
 int battery_update(void) {
-    int err = 0;
-    if (!state.battery) return -ENODEV;
-
+    int err;
     RET_ERR(sensor_sample_fetch(state.battery));
 
     struct sensor_value voltage_value;
@@ -42,7 +40,7 @@ int battery_update(void) {
     level = MIN(level, 100);
     atomic_set(&state.level, level);
 
-    LOG_DBG("Battery state: %d%%, %d.%d V\n", level, voltage_value.val1, voltage_value.val2);
+    LOG_DBG("Battery state: %d%%, %d.%d V", level, voltage_value.val1, voltage_value.val2);
 
     return 0;
 }

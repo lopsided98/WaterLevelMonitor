@@ -11,7 +11,7 @@
 LOG_MODULE_REGISTER(temperature);
 
 static struct {
-    const struct device* sensor;
+    const struct device* const sensor;
     atomic_t temperature;
 } state = {
     .sensor = DEVICE_DT_GET(DT_NODELABEL(temp)),
@@ -21,8 +21,7 @@ static struct {
 int temperature_init(void) { return 0; }
 
 int temperature_update(void) {
-    int err = 0;
-    if (!state.sensor) return -ENODEV;
+    int err;
 
     RET_ERR(sensor_sample_fetch(state.sensor));
 
@@ -32,7 +31,7 @@ int temperature_update(void) {
     // Convert to millicelsius
     int32_t temperature = temperature_value.val1 * 100 + temperature_value.val2 / 10000;
     // Bound to 16-bit (more than enough)
-    temperature = MAX(INT16_MIN, MIN(INT16_MAX, temperature));
+    temperature = clamp(temperature, INT16_MIN, INT16_MAX);
     atomic_set(&state.temperature, temperature);
 
     return err;

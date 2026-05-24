@@ -19,7 +19,7 @@ LOG_MODULE_REGISTER(main);
 K_TIMER_DEFINE(update_timer, NULL, NULL);
 
 void update_thread(void* p1, void* p2, void* p3) {
-    int err = 0;
+    int err;
 
     k_timer_start(&update_timer, UPDATE_PERIOD, UPDATE_PERIOD);
 
@@ -53,7 +53,7 @@ K_THREAD_STACK_DEFINE(update_thread_stack, 1024);
 struct k_thread update_thread_data;
 
 void main(void) {
-    int err = 0;
+    int err;
 
     IF_ERR(watchdog_init()) { LOG_ERR("Watchdog initialization failed (err %d)", err); }
 

@@ -16,7 +16,7 @@ LOG_MODULE_REGISTER(water_level);
 #define MAX_WATER_SAMPLE_ATTEMPTS 20
 
 static struct {
-    const struct device* rangefinder;
+    const struct device* const rangefinder;
     atomic_t water_level;     // mm
     atomic_t water_distance;  // mm
     atomic_t tank_depth;      // mm
@@ -29,7 +29,7 @@ static struct {
 
 static int water_level_settings_set(const char* key, size_t len_rd, settings_read_cb read_cb,
                                     void* cb_arg) {
-    int err = 0;
+    int err;
     int len = settings_name_next(key, NULL);
     if (!strncmp(key, "td", len)) {
         uint16_t tank_depth;
@@ -44,13 +44,10 @@ static int water_level_settings_set(const char* key, size_t len_rd, settings_rea
 SETTINGS_STATIC_HANDLER_DEFINE(water_level_settings, "wl", NULL, water_level_settings_set, NULL,
                                NULL);
 
-int water_level_init(void) {
-    return 0;
-}
+int water_level_init(void) { return 0; }
 
 int water_level_update(void) {
-    int err = 0;
-    if (!state.rangefinder) return -ENODEV;
+    int err;
 
     pm_device_runtime_get(state.rangefinder);
 
