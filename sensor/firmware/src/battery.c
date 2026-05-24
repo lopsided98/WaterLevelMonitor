@@ -22,7 +22,14 @@ static struct {
     .voltage = ATOMIC_INIT(0),
 };
 
-int battery_init(void) { return 0; }
+int battery_init(void) {
+    if (!device_is_ready(state.battery)) {
+        LOG_ERR_DEVICE_NOT_READY(state.battery);
+        return -ENODEV;
+    }
+
+    return 0;
+}
 
 int battery_update(void) {
     int err;

@@ -4,8 +4,7 @@
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
 
-#define LOG_LEVEL CONFIG_SENSOR_LOG_LEVEL
-LOG_MODULE_REGISTER(nrfx_adc_supply);
+LOG_MODULE_REGISTER(nrfx_adc_supply, CONFIG_SENSOR_LOG_LEVEL);
 
 struct nrfx_adc_supply_data {
     struct sensor_value value;
@@ -57,6 +56,11 @@ static int nrfx_adc_supply_channel_get(const struct device* dev, enum sensor_cha
 
 static int nrfx_adc_supply_init(const struct device* dev) {
     const struct nrfx_adc_supply_config* config = dev->config;
+
+    if (!device_is_ready(config->adc)) {
+        LOG_ERR_DEVICE_NOT_READY(config->adc);
+        return -ENODEV;
+    }
 
     struct adc_channel_cfg adc_cfg = {
         .channel_id = 0,  // FIXME: should this be configurable?

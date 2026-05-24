@@ -18,7 +18,14 @@ static struct {
     .temperature = ATOMIC_INIT(0),
 };
 
-int temperature_init(void) { return 0; }
+int temperature_init(void) {
+    if (!device_is_ready(state.sensor)) {
+        LOG_ERR_DEVICE_NOT_READY(state.sensor);
+        return -ENODEV;
+    }
+
+    return 0;
+}
 
 int temperature_update(void) {
     int err;

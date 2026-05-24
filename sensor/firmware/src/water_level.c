@@ -44,7 +44,14 @@ static int water_level_settings_set(const char* key, size_t len_rd, settings_rea
 SETTINGS_STATIC_HANDLER_DEFINE(water_level_settings, "wl", NULL, water_level_settings_set, NULL,
                                NULL);
 
-int water_level_init(void) { return 0; }
+int water_level_init(void) {
+    if (!device_is_ready(state.rangefinder)) {
+        LOG_ERR_DEVICE_NOT_READY(state.rangefinder);
+        return -ENODEV;
+    }
+
+    return 0;
+}
 
 int water_level_update(void) {
     int err;
