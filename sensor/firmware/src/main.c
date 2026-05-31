@@ -7,10 +7,7 @@
 #include "temperature.h"
 #include "watchdog.h"
 #include "water_level.h"
-
-#ifdef CONFIG_MCUMGR_CMD_IMG_MGMT
-#include <img_mgmt/img_mgmt.h>
-#endif
+#include "zephyr/kernel.h"
 
 LOG_MODULE_REGISTER(main);
 
@@ -18,7 +15,7 @@ LOG_MODULE_REGISTER(main);
 
 K_TIMER_DEFINE(update_timer, NULL, NULL);
 
-void update_thread(void* p1, void* p2, void* p3) {
+static void run(void) {
     int err;
 
     k_timer_start(&update_timer, UPDATE_PERIOD, UPDATE_PERIOD);
@@ -49,9 +46,6 @@ void update_thread(void* p1, void* p2, void* p3) {
     }
 }
 
-K_THREAD_STACK_DEFINE(update_thread_stack, 1024);
-struct k_thread update_thread_data;
-
 void main(void) {
     int err;
 
@@ -59,23 +53,10 @@ void main(void) {
 
     IF_ERR(settings_subsys_init()) { LOG_ERR("Settings initialization failed (err %d)", err); }
 
-#ifdef CONFIG_MCUMGR_CMD_IMG_MGMT
-    img_mgmt_register_group();
-#endif
-
     IF_ERR(battery_init()) { LOG_ERR("Battery initialization failed (err %d)", err); }
     IF_ERR(temperature_init()) { LOG_ERR("Temperature initialization failed (err %d)", err); }
     IF_ERR(water_level_init()) { LOG_ERR("Water level initialization failed (err %d)", err); }
     IF_ERR(bluetooth_init()) { LOG_ERR("Bluetooth initiallization failed (err %d)", err); }
 
-    k_thread_create(&update_thread_data,
-                    update_thread_stack,
-                    K_THREAD_STACK_SIZEOF(update_thread_stack),
-                    update_thread,
-                    NULL,
-                    NULL,
-                    NULL,
-                    K_PRIO_PREEMPT(5),
-                    0,
-                    K_NO_WAIT);
+    run();
 }
