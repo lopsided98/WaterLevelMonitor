@@ -1,5 +1,6 @@
 #include "water_level.h"
 
+#include <stdint.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/sensor.h>
 #include <zephyr/logging/log.h>
@@ -9,11 +10,12 @@
 
 #include "bluetooth.h"
 #include "common.h"
+#include "zephyr/sys/util.h"
 
 LOG_MODULE_REGISTER(water_level);
 
 #define NUM_WATER_SAMPLES 10
-#define MAX_WATER_SAMPLE_ATTEMPTS 20
+#define MAX_WATER_SAMPLE_ATTEMPTS 30
 
 static struct {
     const struct device* const rangefinder;
@@ -53,42 +55,81 @@ int water_level_init(void) {
     return 0;
 }
 
+int compare_uint32(const void* a, const void* b) {
+    uint32_t val_a = *(const uint32_t*)a;
+    uint32_t val_b = *(const uint32_t*)b;
+
+    if (val_a < val_b) return -1;
+    if (val_a > val_b) return 1;
+    return 0;
+}
+
 int water_level_update(void) {
     int err;
+    const uint32_t tank_depth = atomic_get(&state.tank_depth);
+    // 6 samples >1.3x tank depth
+    const uint32_t max_distance_mm = tank_depth + DIV_ROUND_CLOSEST(tank_depth, 3);
 
     pm_device_runtime_get(state.rangefinder);
 
-    uint32_t distance_mm_avg = 0;
+    uint32_t distance_mm_samples[NUM_WATER_SAMPLES];
 
-    int samples = 0;
-    for (int tries = 0; tries < MAX_WATER_SAMPLE_ATTEMPTS && samples < NUM_WATER_SAMPLES; ++tries) {
+    size_t samples = 0;
+    for (size_t tries = 0; tries < MAX_WATER_SAMPLE_ATTEMPTS && samples < NUM_WATER_SAMPLES;
+         ++tries) {
         err = sensor_sample_fetch(state.rangefinder);
         if (!err) {
             struct sensor_value distance;
             sensor_channel_get(state.rangefinder, SENSOR_CHAN_DISTANCE, &distance);
 
-            ++samples;
             uint32_t distance_mm = (uint32_t)(distance.val1 * 1000 + distance.val2 / 1000);
-            distance_mm_avg += distance_mm;
+            // Only include reasonable distance samples
+            if (distance_mm < max_distance_mm) {
+                distance_mm_samples[samples] = distance_mm;
+                ++samples;
+                LOG_DBG("Distance (sample %d): %u mm", samples, distance_mm);
+            } else {
+                LOG_WRN("Distance out of range: %u mm", distance_mm);
+            }
         } else {
             LOG_WRN("Failed to read rangefinder (err %d)", err);
         }
+        // Wait long enough between samples to allow echoes to decay
         k_sleep(K_MSEC(50));
     }
 
     pm_device_runtime_put(state.rangefinder);
 
+    if (0 == samples) {
+        // No samples collected, don't update distance
+        LOG_ERR("No valid water level samples");
+        bluetooth_set_error(ERROR_WATER_LEVEL);
+        return 0;
+    }
+
     if (samples != NUM_WATER_SAMPLES) {
-        LOG_ERR("Only measured %d water level samples", samples);
+        LOG_WRN("Only measured %d water level samples", samples);
         bluetooth_set_error(ERROR_WATER_LEVEL);
     }
 
-    distance_mm_avg /= samples;
-    LOG_INF("Distance (avg): %d mm", distance_mm_avg);
+    // Median filter
+    qsort(distance_mm_samples, samples, sizeof(*distance_mm_samples), compare_uint32);
+    uint32_t distance_mm_filtered;
+    if (samples % 2 == 0) {
+        // Even number of samples, everage middle two
+        distance_mm_filtered = DIV_ROUND_CLOSEST(
+            distance_mm_samples[samples / 2] + distance_mm_samples[samples / 2 - 1],
+            2);
+    } else {
+        // Odd number of samples, single median value
+        distance_mm_filtered = distance_mm_samples[samples / 2];
+    }
 
-    uint32_t tank_depth = atomic_get(&state.tank_depth);
-    atomic_set(&state.water_distance, distance_mm_avg);
-    atomic_set(&state.water_level, tank_depth > distance_mm_avg ? tank_depth - distance_mm_avg : 0);
+    LOG_INF("Distance (median): %u mm", distance_mm_filtered);
+
+    atomic_set(&state.water_distance, distance_mm_filtered);
+    atomic_set(&state.water_level,
+               tank_depth > distance_mm_filtered ? tank_depth - distance_mm_filtered : 0);
 
     return 0;
 }
