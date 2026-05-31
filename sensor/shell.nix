@@ -6,10 +6,7 @@
   cmake,
   ninja,
   dtc,
-  gperf,
-  gcovr,
   openocd,
-  gdb,
   nix-prefetch-git,
   python3Packages,
 }:
@@ -24,10 +21,7 @@ mkShell {
     cmake
     ninja
     dtc
-    gperf
-    gcovr
     openocd
-    gdb
     nix-prefetch-git
   ]
   ++ (with python3Packages; [
