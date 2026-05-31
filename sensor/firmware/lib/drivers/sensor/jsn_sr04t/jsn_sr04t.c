@@ -74,8 +74,10 @@ int sr04t_sample_fetch(const struct device* dev, enum sensor_channel chan) {
     if (err < 0) goto cleanup;
 
     // Wait for interrupt processing to finish
-    // FIXME: causes BLE stack to crash under load
-    // Is this still true with Zephyr 4.4?
+    // FIXME: triggers a BLE assertion failure under load. I believe this occurs
+    // because a critical section causes excessive BLE interrupt latency. The
+    // normal solution is zero-latency interrupts, but these are not supported
+    // on the Cortex-M0 (no way to disable only certain interrupt priorities).
     err = k_sem_take(&data->echo_end_sem, K_MSEC(CONFIG_JSN_SR04T_ECHO_TIMEOUT));
     __ASSERT_NO_MSG(err != -EBUSY);
     if (err == -EAGAIN) {
