@@ -23,7 +23,6 @@ int watchdog_init(void) {
 FUNC_NORETURN void k_sys_fatal_error_handler(unsigned int reason, const struct arch_esf* esf) {
     LOG_ERR("FATAL ERROR... Resetting");
     LOG_PANIC();
-    // NRF51 implementation passes reason to GPREGRET
     sys_reboot(SYS_REBOOT_COLD);
     CODE_UNREACHABLE;
 }
