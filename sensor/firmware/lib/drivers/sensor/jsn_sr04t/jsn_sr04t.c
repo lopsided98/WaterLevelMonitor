@@ -128,24 +128,23 @@ static int sr04t_pm_action(const struct device* dev, enum pm_device_action actio
     struct sr04t_data* data = dev->data;
 
     switch (action) {
-        case PM_DEVICE_STATE_ACTIVE:
-            if (data->state == STATE_OFF) {
-                err = gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 1);
-                if (err < 0) return err;
-                // Wait for device to start
-                k_sleep(K_MSEC(100));
-                data->state = STATE_READY;
-            }
+        case PM_DEVICE_ACTION_TURN_ON:
+            err = gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 1);
+            if (err < 0) return err;
+            // Wait for device to start
+            k_sleep(K_MSEC(100));
+            data->state = STATE_READY;
             break;
-        case PM_DEVICE_STATE_OFF:
-            if (data->state != STATE_OFF) {
-                err = gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 0);
-                if (err < 0) return err;
-                data->state = STATE_OFF;
-            }
+        case PM_DEVICE_ACTION_TURN_OFF:
+            err = gpio_pin_set(config->supply_gpio.port, config->supply_gpio.pin, 0);
+            if (err < 0) return err;
+            data->state = STATE_OFF;
+            break;
+        case PM_DEVICE_ACTION_SUSPEND:
+        case PM_DEVICE_ACTION_RESUME:
             break;
         default:
-            return -ENOTSUP;
+            return -EINVAL;
     }
     return 0;
 }
@@ -194,7 +193,7 @@ static int sr04t_init(const struct device* dev) {
                              GPIO_OUTPUT_INACTIVE | config->supply_gpio.dt_flags);
     if (err < 0) return err;
 
-    return 0;
+    return pm_device_driver_init(dev, sr04t_pm_action);
 }
 
 const struct sensor_driver_api sr04t_api = {
