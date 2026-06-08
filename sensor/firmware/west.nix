@@ -85,8 +85,9 @@ nativeBuildInputs = [ lndir ];
         })} \
         "$out"/'modules/hal/nordic/zephyr/blobs/suit/bin/suit_manifest_starter.hex'
 
-    cat << EOF > "$out/.zephyr-env"
-    export ZEPHYR_BASE=${lib.escapeShellArg "${placeholder "out"}/zephyr"}
-    export ZEPHYR_MODULES=${lib.escapeShellArg "${placeholder "out"}/firmware;${placeholder "out"}/modules/hal/cmsis_6;${placeholder "out"}/modules/hal/nordic;${placeholder "out"}/modules/crypto/mbedtls;${placeholder "out"}/modules/crypto/tf-psa-crypto"}
-    EOF
+cat << EOF > "$out/.zephyr-env"
+export ZEPHYR_BASE=${lib.escapeShellArg "${placeholder "out"}/zephyr"}
+export ZEPHYR_MODULES=${lib.escapeShellArg "${placeholder "out"}/firmware;${placeholder "out"}/modules/hal/cmsis_6;${placeholder "out"}/modules/hal/nordic;${placeholder "out"}/modules/crypto/mbedtls;${placeholder "out"}/modules/crypto/tf-psa-crypto"}
+export ZEPHYR_BUILD_VERSION=${lib.escapeShellArg "v4.4.0-1-g487d489b6f0a"}
+EOF
 ''

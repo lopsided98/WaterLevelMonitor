@@ -1,48 +1,59 @@
 {
-  stdenv,
+  stdenvNoCC,
+  lib,
   callPackage,
   python3Packages,
-  git,
   cmake,
-  ninja,
   gcc-arm-embedded,
+  dtc,
 }:
 
-stdenv.mkDerivation {
+stdenvNoCC.mkDerivation {
   pname = "water-level-sensor";
-  version = "0.1.0";
+  version = "0.2.0";
 
   src = callPackage ./firmware/west.nix { };
 
   nativeBuildInputs = [
-    git
     cmake
-    ninja
     gcc-arm-embedded
+    dtc
   ]
   ++ (with python3Packages; [
-    west
+    packaging
     pyelftools
+    pykwalify
+    pyyaml
+    jsonschema
   ]);
 
-  GNUARMEMB_TOOLCHAIN_PATH = gcc-arm-embedded;
+  env =
+    let
+      tool = name: "${lib.getBin gcc-arm-embedded}/bin/arm-none-eabi-${name}";
+    in
+    {
+      ZEPHYR_TOOLCHAIN_VARIANT = "gnuarmemb";
+      GNUARMEMB_TOOLCHAIN_PATH = gcc-arm-embedded;
+      STRIP = tool "strip";
+      RANLIB = tool "ranlib";
+      AR = tool "ar";
+      CC = tool "gcc";
+      CXX = tool "g++";
+    };
 
-  dontConfigure = true;
+  cmakeDir = "../firmware";
 
-  buildPhase = ''
-    runHook preBuild
-
-    west build -b nrf51_ble400 firmware -- -DZEPHYR_TOOLCHAIN_VARIANT=gnuarmemb -DUSER_CACHE_DIR="$(pwd)/.cache"
-    cat .west/config
-
-    runHook postBuild
+  preConfigure = ''
+    export XDG_CACHE_HOME="$TMPDIR"
+    source .zephyr-env
+    cmakeFlagsArray+=("-DBUILD_VERSION=$ZEPHYR_BUILD_VERSION")
   '';
 
   installPhase = ''
     runHook preInstall
 
     mkdir -p "$out"
-    cp build/zephyr/zephyr.elf "$out"
+    cp zephyr/zephyr.{elf,bin,hex,map} "$out"
 
     runHook postInstall
   '';

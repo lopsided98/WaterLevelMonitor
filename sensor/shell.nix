@@ -13,7 +13,9 @@
 
 mkShell {
   name = "water-level-monitor-env";
+
   disableHardening = [ "all" ];
+
   nativeBuildInputs = [
     which
     git
@@ -33,5 +35,5 @@ mkShell {
     jsonschema
   ]);
 
-  GNUARMEMB_TOOLCHAIN_PATH = gcc-arm-embedded;
+  env.GNUARMEMB_TOOLCHAIN_PATH = gcc-arm-embedded;
 }
