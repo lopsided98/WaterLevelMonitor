@@ -4,8 +4,10 @@
   callPackage,
   python3Packages,
   cmake,
+  ninja,
   gcc-arm-embedded,
   dtc,
+  buildPackages,
 }:
 
 stdenvNoCC.mkDerivation {
@@ -16,6 +18,7 @@ stdenvNoCC.mkDerivation {
 
   nativeBuildInputs = [
     cmake
+    ninja
     gcc-arm-embedded
     dtc
   ]
@@ -27,33 +30,37 @@ stdenvNoCC.mkDerivation {
     jsonschema
   ]);
 
-  env =
-    let
-      tool = name: "${lib.getBin gcc-arm-embedded}/bin/arm-none-eabi-${name}";
-    in
-    {
-      ZEPHYR_TOOLCHAIN_VARIANT = "gnuarmemb";
-      GNUARMEMB_TOOLCHAIN_PATH = gcc-arm-embedded;
-      STRIP = tool "strip";
-      RANLIB = tool "ranlib";
-      AR = tool "ar";
-      CC = tool "gcc";
-      CXX = tool "g++";
-    };
+  env = {
+    ZEPHYR_TOOLCHAIN_VARIANT = "gnuarmemb";
+    GNUARMEMB_TOOLCHAIN_PATH = buildPackages.gcc-arm-embedded;
+  };
 
-  cmakeDir = "../firmware";
+  # Default CMake flags make assumptions that don't hold when building Zephyr
+  dontUseCmakeConfigure = true;
 
-  preConfigure = ''
+  configurePhase = ''
+    runHook preConfigure
+
     export XDG_CACHE_HOME="$TMPDIR"
     source .zephyr-env
-    cmakeFlagsArray+=("-DBUILD_VERSION=$ZEPHYR_BUILD_VERSION")
+
+    cmake -S firmware -B build -G Ninja \
+      -DBUILD_VERSION="$ZEPHYR_BUILD_VERSION" \
+      -DEXTRA_CONF_FILE=release.conf
+
+    runHook postConfigure
   '';
+
+  ninjaFlags = [
+    "-C"
+    "build"
+  ];
 
   installPhase = ''
     runHook preInstall
 
     mkdir -p "$out"
-    cp zephyr/zephyr.{elf,bin,hex,map} "$out"
+    cp build/zephyr/zephyr.{elf,bin,hex,map} "$out"
 
     runHook postInstall
   '';
