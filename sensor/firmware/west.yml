@@ -16,7 +16,7 @@ manifest:
           - tf-psa-crypto
     - name: west-nix
       remote: lopsided98
-      revision: 3f31c82804e217842dc40e21ab8f95a037dfc8f7
+      revision: fc5717a5981a9fd43939a692e8fe7c73c13a9103
       import: true
       path: tools/west-nix
   self:

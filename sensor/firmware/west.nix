@@ -26,9 +26,9 @@ nativeBuildInputs = [ lndir ];
         ${lib.escapeShellArg (
         fetchgit {
             url = "https://github.com/lopsided98/west-nix";
-            rev = "3f31c82804e217842dc40e21ab8f95a037dfc8f7";
+            rev = "fc5717a5981a9fd43939a692e8fe7c73c13a9103";
             branchName = "manifest-rev";
-            hash = "sha256-l30Ib09LT0+kFhq6DYqIWlLznRP0ZMxgzEzU6L2d1nQ=";
+            hash = "sha256-t/WSQOHGWvlHSdHYzJHKwwe59UkS2eaDf8YBbvzyOiQ=";
         })} \
         "$out"/'tools/west-nix'
 
