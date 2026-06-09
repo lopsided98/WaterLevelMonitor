@@ -1,4 +1,5 @@
 CompileFlags:
+    CompilationDatabase: build
     Remove:
         - -mfp16-format=ieee
         - -fno-reorder-functions
